@@ -1,3 +1,7 @@
+import os
+import time
+import qrcode
+
 class StokBarang:
     def __init__(self):
         self.products = {
@@ -39,23 +43,30 @@ class LogAktivitas:
     def __init__(self):
         self.history = []
 
-    def add_log(self, product_name, quantity, price):
-        self.history.append({"name": product_name, "quantity": quantity, "price": price})
+    def add_log(self, action, detail):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.history.append({"timestamp": timestamp, "action": action, "detail": detail})
 
     def show_history(self):
         print("\n||=================================================||")
-        print("||                RIWAYAT PEMBELIAN                ||".center(49))
+        print("||                RIWAYAT AKTIVITAS                ||".center(49))
         print("||=================================================||")
         if not self.history:
-            print("||          Belum ada riwayat pembelian            ||".center(49))
+            print("||          Belum ada riwayat aktivitas           ||".center(49))
         else:
             for entry in self.history:
-                print(f"|| {entry['name']} x{entry['quantity']} - Rp{entry['price']:<7}                  ||")
+                print(f"|| [{entry['timestamp']}] {entry['action']} - {entry['detail']}                  ||")
         print("||=================================================||")
 
 class SistemPembayaran:
     def __init__(self):
         self.nomor_tujuan = "089656054453"
+        self.wallet = 0
+
+    def top_up_wallet(self, amount):
+        self.wallet += amount
+        print(f"Dompet berhasil di-top up sebesar Rp{amount}. Total dompet: Rp{self.wallet}.")
+        return amount
 
     def pilih_metode_pembayaran(self, total):
         print("\n||=================================================||")
@@ -64,27 +75,44 @@ class SistemPembayaran:
         print("|| 1. GoPay                                        ||".center(49))
         print("|| 2. DANA                                         ||".center(49))
         print("|| 3. OVO                                          ||".center(49))
+        print("|| 4. Tunai                                        ||".center(49))
         print("||=================================================||")
         
-        metode = input("Masukkan pilihan metode pembayaran (1-3): ")
+        metode = input("Masukkan pilihan metode pembayaran (1-4): ")
         if metode == "1":
             metode_pembayaran = "GoPay"
         elif metode == "2":
             metode_pembayaran = "DANA"
         elif metode == "3":
             metode_pembayaran = "OVO"
+        elif metode == "4":
+            metode_pembayaran = "Tunai"
         else:
             print("Metode pembayaran tidak valid. Pembayaran dibatalkan.")
             return False
         
-        print(f"\nSilakan transfer Rp{total} ke nomor {self.nomor_tujuan} menggunakan {metode_pembayaran}.")
-        konfirmasi = input("Apakah Anda sudah melakukan pembayaran? (ya/tidak): ").lower()
-        if konfirmasi == "ya":
-            print("Pembayaran Diverifikasi, Pesanan Akan Segera Dibuat.\n")
-            return True
+        if metode_pembayaran == "Tunai":
+            print(f"\nSilakan bayar Rp{total}.")
+            cash_received = int(input("Masukkan jumlah uang yang diberikan: "))
+            if cash_received < total:
+                print("Uang yang diberikan tidak cukup. Pembayaran dibatalkan.")
+                return False
+            else:
+                change = cash_received - total
+                if change > 0:
+                    self.wallet += change
+                    print(f"Kembalian Rp{change} telah ditambahkan ke dompet Anda.")
+                print("Pembayaran Diverifikasi, Pesanan Akan Segera Dibuat.\n")
+                return True
         else:
-            print("Pembayaran belum dikonfirmasi. Silakan lakukan pembayaran terlebih dahulu.\n")
-            return False
+            print(f"\nSilakan transfer Rp{total} ke nomor {self.nomor_tujuan} menggunakan {metode_pembayaran}.")
+            konfirmasi = input("Apakah Anda sudah melakukan pembayaran? (ya/tidak): ").lower()
+            if konfirmasi == "ya":
+                print("Pembayaran Diverifikasi, Pesanan Akan Segera Dibuat.\n")
+                return True
+            else:
+                print("Pembayaran belum dikonfirmasi. Silakan lakukan pembayaran terlebih dahulu.\n")
+                return False
 
 class Display:
     def header_utama(self):
@@ -119,7 +147,10 @@ class Display:
         print("||=================================================||")
         print("|| 1. Lihat Log History                            ||".center(49))
         print("|| 2. Tambah Stok Produk                           ||".center(49))
-        print("|| 3. Kembali ke Menu Utama                        ||".center(49))
+        print("|| 3. Cek Suhu                                     ||".center(49))
+        print("|| 4. Tambah/Kurangi Suhu                          ||".center(49))
+        print("|| 5. Waktu Sekarang                               ||".center(49))
+        print("|| 6. Kembali ke Menu Utama                        ||".center(49))
         print("||=================================================||")
 
 class PemrosesanPesanan:
@@ -139,26 +170,59 @@ class PemrosesanPesanan:
         else:
             print("Gagal menambahkan ke keranjang. Stok tidak mencukupi.\n")
 
-    def proses_checkout(self):
+    def hapus_dari_keranjang(self, product_code):
+        for item in self.cart:
+            if item["name"] == self.stok.products[product_code]["name"]:
+                self.cart.remove(item)
+                self.total_harga -= item["price"]
+                print(f"{item['name']} telah dihapus dari keranjang. Total sementara: Rp{self.total_harga}\n")
+                return
+        print("Item tidak ditemukan di keranjang.\n")
+
+    def cek_keranjang(self):
         if not self.cart:
-            print("Keranjang Anda kosong. Tambahkan produk terlebih dahulu.\n")
+            print("Keranjang Anda kosong.\n")
             return
-        
         print("\n||=================================================||")
-        print("||                  REVIEW PEMBELIAN               ||".center(49))
+        print("||                  KERANJANG BELANJA              ||".center(49))
         print("||=================================================||")
         for item in self.cart:
             print(f"|| {item['name']} x{item['quantity']} - Rp{item['price']:<7}                   ||")
         print(f"|| Total Harga: Rp{self.total_harga:<7}                           ||")
         print("||=================================================||")
 
+    def proses_checkout(self):
+        if not self.cart:
+            print("Keranjang Anda kosong. Tambahkan produk terlebih dahulu.\n")
+            return
+        
+        self.cek_keranjang()
+
         if self.pembayaran.pilih_metode_pembayaran(self.total_harga):
             for item in self.cart:
-                self.log.add_log(item["name"], item["quantity"], item["price"])
+                self.log.add_log("Pembelian", f"{item['name']} x{item['quantity']} - Rp{item['price']}")
             print("Transaksi selesai, terima kasih telah berbelanja di MYVENDING!\n")
             self.cart = []
             self.total_harga = 0
 
+class Akun:
+    def __init__(self):
+        self.username = "user"
+        self.password = "12345"
+        self.is_logged_in = False
+
+    def login(self):
+        username_input = input("Masukkan username: ")
+        password_input = input("Masukkan password: ")
+        if username_input == self.username and password_input == self.password:
+            self.is_logged_in = True
+            print("Login berhasil!")
+        else:
+            print("Username atau password salah.")
+
+    def logout(self):
+        self.is_logged_in = False
+        print("Anda telah logout.")
 
 def main():
     stok = StokBarang()
@@ -166,8 +230,16 @@ def main():
     pembayaran = SistemPembayaran()
     display = Display()
     pesanan = PemrosesanPesanan(stok, log, pembayaran)
+    akun = Akun()
 
     while True:
+        if not akun.is_logged_in:
+            print("||=================================================||")
+            print("||                HALAMAN LOGIN                   ||".center(49))
+            print("||=================================================||")
+            akun.login()
+            continue
+
         display.header_utama()
         display.menu_utama()
         
@@ -184,7 +256,9 @@ def main():
                 stok.display_products()
                 print("\n1. Tambah Produk ke Keranjang")
                 print("2. Lanjutkan ke Pembayaran")
-                print("3. Kembali ke Menu Utama")
+                print("3. Hapus Item dari Keranjang")
+                print("4. Cek Keranjang")
+                print("5. Kembali ke Menu Utama")
                 
                 pilihan_produk = input("Masukkan pilihan: ")
                 print()  # Menambahkan spasi setelah input pilihan
@@ -197,6 +271,11 @@ def main():
                     pesanan.proses_checkout()
                     break
                 elif pilihan_produk == "3":
+                    kode_produk = int(input("Masukkan kode produk yang ingin dihapus: "))
+                    pesanan.hapus_dari_keranjang(kode_produk)
+                elif pilihan_produk == "4":
+                    pesanan.cek_keranjang()
+                elif pilihan_produk == "5":
                     print("Kembali ke Menu Utama.\n")
                     break
                 else:
@@ -234,13 +313,24 @@ def main():
                     kode_produk = int(input("Masukkan kode produk untuk menambah stok: "))
                     jumlah = int(input("Masukkan jumlah stok yang ingin ditambahkan: "))
                     stok.add_stock(kode_produk, jumlah)
+                    log.add_log("Tambah Stok Produk", f"Kode: {kode_produk}, Jumlah: {jumlah}")
                     print()  # Spasi tambahan setelah stok ditambahkan
                 elif pilihan_admin == "3":
+                    # Cek suhu (dummy implementation)
+                    print("Suhu saat ini: 25°C\n")
+                elif pilihan_admin == "4":
+                    # Tambah/Kurangi suhu (dummy implementation)
+                    perubahan = int(input("Masukkan perubahan suhu (positif untuk tambah, negatif untuk kurangi): "))
+                    print(f"Suhu berhasil diubah sebesar {perubahan}°C.\n")
+                elif pilihan_admin == "5":
+                    # Waktu sekarang
+                    print(f"Waktu sekarang: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                elif pilihan_admin == "6":
                     print("Kembali ke Menu Utama.\n")
                     break
                 else:
                     print("Pilihan tidak valid. Silakan coba lagi.\n")
-                
+
         elif pilihan == 4:
             print("Terima kasih telah menggunakan MYVENDING!\n")
             break
