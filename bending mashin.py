@@ -20,13 +20,14 @@ class Display:
         print("||                    MY VENDING                   ||".center(49))
         print("||=================================================||")
     
-    def menu_utama(self):
+    def menu_admin(self):
         print("\n\n|----------------------------------------------------|")
-        print("| MENU UTAMA                                         |".center(49))
-        print("| 1. Belanja Produk                                  |".center(49))
-        print("| 2. Login Akun                                      |".center(49))
-        print("| 3. Menu Admin                                      |".center(49))
-        print("| 4. Keluar                                          |".center(49))
+        print("| MENU ADMIN                                        |".center(49))
+        print("| 1. Tampilkan Riwayat Aktivitas                    |".center(49))
+        print("| 2. Status MyVending                               |".center(49))
+        print("| 3. Kelola Produk di MyVending                     |".center(49))
+        print("| 4. Cek Saldo Kembalian Tunai                      |".center(49))
+        print("| 5. Kembali ke Menu Utama                          |".center(49))
         print("|----------------------------------------------------|")
 
 class StokBarang:
@@ -61,6 +62,23 @@ class StokBarang:
                 print(f"Stok tidak cukup untuk {product['name']}!")
                 return False
         return False
+    
+    def tambah_stok(self, product_code, tambahan, log):
+        if product_code in self.products:
+            current_stock = self.products[product_code]["stock"]
+            if current_stock + tambahan > 25:
+                print("Stok akan overload! Stok maksimal adalah 25.")
+                return False
+            else:
+                self.products[product_code]["stock"] += tambahan
+                log.add_log("Tambah Stok", f"{self.products[product_code]['name']} - Tambah {tambahan} (Total: {self.products[product_code]['stock']})")
+                print(f"Stok {self.products[product_code]['name']} berhasil ditambahkan sebanyak {tambahan}. Total stok: {self.products[product_code]['stock']}.")
+                input("\nTekan Enter untuk melanjutkan...")
+                return True
+        else:
+            print("Kode produk tidak valid.")
+            input("\nTekan Enter untuk melanjutkan...")
+            return False
 
 class LogAktivitas:
     def __init__(self):
@@ -80,50 +98,50 @@ class LogAktivitas:
         print("|-------------------------------------------------|")
 
 class SistemPembayaran:
-    def __init__(self):
-        self.saldo = 0  # Inisialisasi saldo, sesuaikan dengan kebutuhan Anda
+    def __init__(self, kembalian):
+        self.saldo = 0  # Inisialisasi saldo MyPay
+        self.kembalian = kembalian  # Menggunakan class SistemKembalian untuk mengelola kembalian
 
-    def bayar_dengan_saldo(self):
-        print("Pembayaran menggunakan saldo MyPay sedang diproses...")
-        # Logika pengurangan saldo, pengecekan saldo, dsb.
+    def bayar_dengan_tunai(self, total_harga):
+        print("Masukkan nominal uang yang digunakan untuk membayar (gunakan pecahan Rp1000, Rp2000, Rp5000, Rp10000, Rp20000, Rp50000, Rp100000).")
+        sisa_pembayaran = total_harga
+        while sisa_pembayaran > 0:
+            nominal = int(input(f"Sisa pembayaran: Rp{sisa_pembayaran}. Masukkan nominal: Rp"))
+            jumlah = int(input(f"Berapa lembar Rp{nominal}? "))
+            total_input = nominal * jumlah
 
-    def generate_qris(self, data):
-        # Membuat kode QR untuk QRIS
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
+            if total_input > sisa_pembayaran:
+                kembalian = total_input - sisa_pembayaran
+                print(f"Kembalian: Rp{kembalian}")
+                self.kembalian.update_kembalian(nominal, jumlah)  # Update saldo kembalian
+                return True
+            elif total_input == sisa_pembayaran:
+                print("Pembayaran berhasil. Tidak ada kembalian.")
+                self.kembalian.update_kembalian(nominal, jumlah)
+                return True
+            else:
+                sisa_pembayaran -= total_input
+                self.kembalian.update_kembalian(nominal, jumlah)
+        return True
 
-        img = qr.make_image(fill="black", back_color="white")
-        img.save("qris_payment.png")
-        print("QRIS berhasil dibuat. Silakan pindai gambar 'qris_payment.png' untuk pembayaran.")
-
-    def pilih_metode_pembayaran(self, total_harga):
+    def proses_checkout(self, total_harga):
         print("\nPilih metode pembayaran:")
         print("1. MyPay (Saldo)")
         print("2. QRIS")
+        print("3. Tunai")
 
         pilihan_pembayaran = int(input("Pilihan: "))
         if pilihan_pembayaran == 1:
-            if self.saldo >= total_harga:
-                self.bayar_dengan_saldo()
-                print("Pembayaran berhasil dengan saldo MyPay.")
-                return True
-            else:
-                print("Saldo MyPay tidak mencukupi.")
-                return False
+            return self.bayar_dengan_saldo(total_harga)
         elif pilihan_pembayaran == 2:
-            link_qris = "https://randomqr.com/assets/images/randomqr-256.png"  # Ganti dengan tautan QRIS yang benar
+            link_qris = "https://example.com/qris-payment?transaction_id=123456789"
             print("\nPembayaran melalui QRIS sedang diproses...")
-            self.generate_qris(link_qris)
-            print("Silakan pindai kode QR yang telah dibuat untuk menyelesaikan pembayaran.")
+            self.generate_qris_ascii(link_qris)
             input("Tekan Enter setelah melakukan pembayaran.")
             print("Pembayaran dengan QRIS berhasil.")
             return True
+        elif pilihan_pembayaran == 3:
+            return self.bayar_dengan_tunai(total_harga)
         else:
             print("Metode pembayaran tidak valid. Kembali ke menu pembayaran.")
             return False
@@ -146,13 +164,23 @@ class PemrosesanPesanan:
             print("\nStok tidak mencukupi! Produk gagal ditambahkan.\n")
 
     def hapus_dari_keranjang(self, product_code):
+        if not self.cart:
+            print("\nKeranjang Anda kosong. Tidak ada produk yang dapat dihapus.\n")
+            return
+
         for item in self.cart:
-            if item["code"] == product_code:
+            print(f"Kode: {item['code']}, Nama: {item['name']}, Jumlah: {item['quantity']}, Harga: Rp{item['price']}")
+        print("|---------------------------------------------------|")
+        print("")
+
+        kode_hapus = int(input("Masukkan kode produk yang ingin dihapus dari keranjang: "))
+        for item in self.cart:
+            if item["code"] == kode_hapus:
                 self.cart.remove(item)
                 self.total_harga -= item["price"]
-                print(f"{item['name']} x{item['quantity']} telah dihapus dari keranjang. Total sementara: Rp{self.total_harga}\n")
+                print(f"{item['name']} telah dihapus dari keranjang.")
                 return
-        print("Item tidak ditemukan di keranjang.\n")
+        print(f"Produk dengan kode {kode_hapus} tidak ditemukan di keranjang.\n")
 
     def cek_keranjang(self):
         if not self.cart:
@@ -167,21 +195,39 @@ class PemrosesanPesanan:
         print("|---------------------------------------------------|")
         print(f"| Total Harga: {' ':<22} {' Rp' + str(self.total_harga):<13} |")
         print("|---------------------------------------------------|\n")
+        return True
 
+    def proses_checkout(self, total_harga):
+        print("\nPilih metode pembayaran:")
+        print("1. MyPay (Saldo)")
+        print("2. QRIS")
+        print("3. Tunai")
+        print("4. GoPay")
+        print("5. OVO")
+        print("6. Dana")
 
-    def proses_checkout(self):
-        if not self.cart:
-            print("Keranjang Anda kosong. Tambahkan produk terlebih dahulu.\n")
-            return
-        
-        self.cek_keranjang()
+        pilihan_pembayaran = int(input("Pilihan: "))
+        if pilihan_pembayaran == 1:
+            return self.bayar_dengan_saldo(total_harga)
+        elif pilihan_pembayaran == 2:
+            link_qris = "https://example.com/qris-payment?transaction_id=123456789"
+            print("\nPembayaran melalui QRIS sedang diproses...")
+            self.generate_qris_ascii(link_qris)
+            input("Tekan Enter setelah melakukan pembayaran.")
+            print("Pembayaran dengan QRIS berhasil.")
+            return True
+        elif pilihan_pembayaran == 3:
+            return self.bayar_dengan_tunai(total_harga)
+        elif pilihan_pembayaran in [4, 5, 6]:
+            metode = {4: "GoPay", 5: "OVO", 6: "Dana"}
+            print(f"\nSilakan transfer Rp{total_harga} ke nomor '089656054453' melalui {metode[pilihan_pembayaran]}.")
+            input("Tekan Enter setelah melakukan pembayaran.")
+            print(f"Pembayaran dengan {metode[pilihan_pembayaran]} berhasil.")
+            return True
+        else:
+            print("Metode pembayaran tidak valid. Kembali ke menu pembayaran.")
+            return False
 
-        if self.pembayaran.pilih_metode_pembayaran(self.total_harga):
-            for item in self.cart:
-                self.log.add_log("Pembelian", f"{item['name']} x{item['quantity']} - Rp{item['price']}")
-            print("Transaksi selesai, terima kasih telah berbelanja di MYVENDING!\n")
-            self.cart = []
-            self.total_harga = 0
 
 class Akun:
     def __init__(self):
@@ -361,20 +407,78 @@ class MyVendingStatus:
         if self.kelembapan > 70:
             print("Peringatan: Kelembapan terlalu tinggi, ini akan mempercepat pertumbuhan jamur.")
 
+class SistemKembalian:
+    def __init__(self, file_csv="kembalian.csv"):
+        self.file_csv = file_csv
+        self.saldo = self._load_saldo()
+
+    def _load_saldo(self):
+        saldo = {}
+        try:
+            with open(self.file_csv, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if "nominal" in row and "jumlah" in row:  # Periksa apakah kolom sesuai
+                        nominal = int(row["nominal"])
+                        jumlah = int(row["jumlah"])
+                        saldo[nominal] = jumlah
+                    else:
+                        raise ValueError("Header CSV tidak valid. Diperlukan 'nominal' dan 'jumlah'.")
+        except (FileNotFoundError, ValueError):
+            print(f"File {self.file_csv} tidak ditemukan atau tidak valid. Membuat file baru...")
+            self._initialize_csv()
+            saldo = self._load_saldo()  # Reload setelah inisialisasi
+        return saldo
+
+    def _initialize_csv(self):
+        with open(self.file_csv, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=["nominal", "jumlah"])
+            writer.writeheader()
+            for nominal in [1000, 2000, 5000, 10000, 20000, 50000, 100000]:
+                writer.writerow({"nominal": nominal, "jumlah": 0})
+
+    def cek_saldo_kembalian(self):
+        print("\n|| Saldo Kembalian Tunai ||")
+        print("||------------------------||")
+        total_saldo = 0
+        for nominal, jumlah in sorted(self.saldo.items()):
+            print(f"|| Rp{nominal:<7} | {jumlah:<4} lembar ||")
+            total_saldo += nominal * jumlah
+        print("||------------------------||")
+        print(f"|| Total Saldo: Rp{total_saldo:<15} ||")
+        print("||------------------------||")
+
+    def update_kembalian(self, nominal, jumlah):
+        if nominal in self.saldo:
+            self.saldo[nominal] += jumlah
+        else:
+            self.saldo[nominal] = jumlah
+
+        with open(self.file_csv, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=["nominal", "jumlah"])
+            writer.writeheader()
+            for nominal, jumlah in self.saldo.items():
+                writer.writerow({"nominal": nominal, "jumlah": jumlah})
+
+    def tambah_saldo(self, nominal, jumlah):
+        print(f"Menambahkan Rp{nominal} x{jumlah} ke saldo kembalian.")
+        self.update_kembalian(nominal, jumlah)
+
 def main():
     stok = StokBarang()
     log = LogAktivitas()
-    pembayaran = SistemPembayaran()
+    kembalian = SistemKembalian("kembalian.csv")  # Hubungkan dengan CSV
+    pembayaran = SistemPembayaran(kembalian)  # Hubungkan SistemKembalian dengan SistemPembayaran
     display = Display()
     pesanan = PemrosesanPesanan(stok, log, pembayaran)
-    akun = Akun()  # Mengelola data akun
-    vending_status = MyVendingStatus()  # Status suhu dan kelembapan MyVending
+    akun = Akun()
+    vending_status = MyVendingStatus()
 
-    admin_password = "Admin#123"  # Password baru untuk akses ke Menu Admin
+    admin_password = "Admin#123"
 
     while True:
         clear_screen()
-        
+
         # Menampilkan Header Utama
         print("||=================================================||")
         print("||               SELAMAT DATANG DI MYVENDING       ||")
@@ -479,7 +583,7 @@ def main():
                     print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!\n")
                 
                 input("\nTekan Enter untuk melanjutkan...")
-        
+
         elif pilihan_menu == 2:
             # Menu Akun
             while True:
@@ -529,8 +633,9 @@ def main():
                     print("||=================================================||")
                     print("\n1. Tampilkan Riwayat Aktivitas")
                     print("2. Status MyVending")
-                    print("3. Ubah Produk di MyVending")
-                    print("4. Kembali ke Menu Utama")
+                    print("3. Kelola Produk di MyVending")
+                    print("4. Cek Saldo Kembalian Tunai")
+                    print("5. Kembali ke Menu Utama")
 
                     pilihan_menuadmin = int(input("Pilihan: "))
                     
@@ -541,7 +646,7 @@ def main():
                         print("||                Riwayat Aktivitas                ||".center(49))
                         print("||=================================================||")
                         log.show_history()
-                        print()
+                        input("\nTekan Enter untuk kembali ke Menu Admin...")
 
                     elif pilihan_menuadmin == 2:
                         # Menampilkan Status MyVending
@@ -573,14 +678,58 @@ def main():
                                 print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!\n")
                     
                     elif pilihan_menuadmin == 3:
-                        # Ubah Produk di MyVending (Tidak diubah)
-                        pass
+                        # Kelola Produk di MyVending
+                        while True:
+                            clear_screen()
+                            print("||=================================================||")
+                            print("||                    MY VENDING                   ||".center(49))
+                            print("||                  Kelola Produk                  ||".center(49))
+                            print("||=================================================||")
+                            
+                            stok.display_products()  # Menampilkan daftar produk
+                            print("\n1. Tambah Stok Produk")
+                            print("2. Kembali ke Menu Admin")
+
+                            pilihan_kelola_produk = int(input("Pilihan: "))
+
+                            if pilihan_kelola_produk == 1:
+                                kode_produk = int(input("Masukkan kode produk yang ingin ditambah stok: "))
+                                jumlah_tambah = int(input("Masukkan jumlah stok yang ingin ditambahkan: "))
+                                
+                                if kode_produk in stok.products:
+                                    produk = stok.products[kode_produk]
+                                    if produk["stock"] + jumlah_tambah > 25:
+                                        print("Stok melebihi kapasitas maksimal (25). Tidak bisa menambah stok.")
+                                    else:
+                                        produk["stock"] += jumlah_tambah
+                                        print(f"Stok {produk['name']} berhasil ditambah menjadi {produk['stock']}.")
+                                        log.add_log("Tambah Stok", f"{produk['name']} +{jumlah_tambah}")
+                                        input("\nTekan Enter untuk melanjutkan...")
+                                else:
+                                    print("Kode produk tidak ditemukan.")
+                                    input("\nTekan Enter untuk melanjutkan...")
+
+                            elif pilihan_kelola_produk == 2:
+                                break  # Kembali ke Menu Admin
+                            else:
+                                print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!\n")
+                    
                     elif pilihan_menuadmin == 4:
-                        break
+                        # Cek Saldo Kembalian Tunai
+                        clear_screen()
+                        print("||=================================================||")
+                        print("||                    MY VENDING                   ||".center(49))
+                        print("||               Cek Saldo Kembalian Tunai         ||".center(49))
+                        print("||=================================================||")
+                        kembalian.cek_saldo_kembalian()
+                        input("\nTekan Enter untuk kembali ke menu Admin...")  # Cukup 1 kali Enter untuk keluar
+
+                    elif pilihan_menuadmin == 5:
+                        break  # Kembali ke Menu Utama
+
                     else:
                         print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!\n")
                     
-                    input("Tekan Enter untuk melanjutkan...")
             else:
                 # Jika password salah, cukup satu kali enter untuk kembali ke Menu Utama
                 print("Password salah. Kembali ke Menu Utama.")
