@@ -2,6 +2,7 @@ import os
 import time
 import csv
 import getpass
+import qrcode
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -80,59 +81,52 @@ class LogAktivitas:
 
 class SistemPembayaran:
     def __init__(self):
-        self.nomor_tujuan = "089656054453"
-        self.wallet = 0
+        self.saldo = 0  # Inisialisasi saldo, sesuaikan dengan kebutuhan Anda
 
-    def top_up_wallet(self, amount):
-        self.wallet += amount
-        print(f"Dompet berhasil di-top up sebesar Rp{amount}. Total dompet: Rp{self.wallet}.")
-        return amount
+    def bayar_dengan_saldo(self):
+        print("Pembayaran menggunakan saldo MyPay sedang diproses...")
+        # Logika pengurangan saldo, pengecekan saldo, dsb.
 
-    def pilih_metode_pembayaran(self, total):
-        print("\n||=================================================||")
-        print("||              PILIH METODE PEMBAYARAN            ||".center(49))
-        print("||=================================================||")
-        print("|| 1. GoPay                                        ||".center(49))
-        print("|| 2. DANA                                         ||".center(49))
-        print("|| 3. OVO                                          ||".center(49))
-        print("|| 4. Tunai                                        ||".center(49))
-        print("||=================================================||")
-        
-        metode = input("Masukkan pilihan metode pembayaran (1-4): ")
-        if metode == "1":
-            metode_pembayaran = "GoPay"
-        elif metode == "2":
-            metode_pembayaran = "DANA"
-        elif metode == "3":
-            metode_pembayaran = "OVO"
-        elif metode == "4":
-            metode_pembayaran = "Tunai"
+    def generate_qris(self, data):
+        # Membuat kode QR untuk QRIS
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill="black", back_color="white")
+        img.save("qris_payment.png")
+        print("QRIS berhasil dibuat. Silakan pindai gambar 'qris_payment.png' untuk pembayaran.")
+
+    def pilih_metode_pembayaran(self, total_harga):
+        print("\nPilih metode pembayaran:")
+        print("1. MyPay (Saldo)")
+        print("2. QRIS")
+
+        pilihan_pembayaran = int(input("Pilihan: "))
+        if pilihan_pembayaran == 1:
+            if self.saldo >= total_harga:
+                self.bayar_dengan_saldo()
+                print("Pembayaran berhasil dengan saldo MyPay.")
+                return True
+            else:
+                print("Saldo MyPay tidak mencukupi.")
+                return False
+        elif pilihan_pembayaran == 2:
+            link_qris = "https://randomqr.com/assets/images/randomqr-256.png"  # Ganti dengan tautan QRIS yang benar
+            print("\nPembayaran melalui QRIS sedang diproses...")
+            self.generate_qris(link_qris)
+            print("Silakan pindai kode QR yang telah dibuat untuk menyelesaikan pembayaran.")
+            input("Tekan Enter setelah melakukan pembayaran.")
+            print("Pembayaran dengan QRIS berhasil.")
+            return True
         else:
-            print("Metode pembayaran tidak valid. Pembayaran dibatalkan.")
+            print("Metode pembayaran tidak valid. Kembali ke menu pembayaran.")
             return False
-        
-        if metode_pembayaran == "Tunai":
-            print(f"\nSilakan bayar Rp{total}.")
-            cash_received = int(input("Masukkan jumlah uang yang diberikan: "))
-            if cash_received < total:
-                print("Uang yang diberikan tidak cukup. Pembayaran dibatalkan.")
-                return False
-            else:
-                change = cash_received - total
-                if change > 0:
-                    self.wallet += change
-                    print(f"Kembalian Rp{change} telah ditambahkan ke dompet Anda.")
-                print("Pembayaran Diverifikasi, Pesanan Akan Segera Dibuat.\n")
-                return True
-        else:
-            print(f"\nSilakan transfer Rp{total} ke nomor {self.nomor_tujuan} menggunakan {metode_pembayaran}.")
-            konfirmasi = input("Apakah Anda sudah melakukan pembayaran? (ya/tidak): ").lower()
-            if konfirmasi == "ya":
-                print("Pembayaran Diverifikasi, Pesanan Akan Segera Dibuat.\n")
-                return True
-            else:
-                print("Pembayaran belum dikonfirmasi. Silakan lakukan pembayaran terlebih dahulu.\n")
-                return False
 
 class PemrosesanPesanan:
     def __init__(self, stok, log, pembayaran):
