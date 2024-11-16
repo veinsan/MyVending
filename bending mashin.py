@@ -98,14 +98,18 @@ class LogAktivitas:
         print("|-------------------------------------------------|")
 
 class SistemPembayaran:
-    def __init__(self, kembalian):
+    def __init__(self, kembalian, akun):
         self.saldo = 10000  # Contoh inisialisasi saldo
         self.kembalian = kembalian  # Menyimpan referensi ke SistemKembalian
+        self.akun = akun  # Menyimpan referensi ke akun yang sedang login
 
     def bayar_dengan_saldo(self, total_harga):
-        if self.saldo >= total_harga:
-            self.saldo -= total_harga
-            print("Pembayaran berhasil dengan saldo MyPay.")
+        if self.akun.logged_in_user and int(self.akun.logged_in_user['saldo']) >= total_harga:
+            # Kurangi saldo akun
+            self.akun.logged_in_user['saldo'] = int(self.akun.logged_in_user['saldo']) - total_harga
+            print(f"Pembayaran berhasil menggunakan saldo MyPay. Sisa saldo: Rp{self.akun.logged_in_user['saldo']}.")      
+            # Perbarui saldo di file CSV
+            self.akun.update_saldo_csv()
             return True
         else:
             print("Saldo MyPay tidak mencukupi.")
@@ -188,7 +192,10 @@ class PemrosesanPesanan:
             if item["code"] == product_code:
                 self.cart.remove(item)
                 self.total_harga -= item["price"]
-                print(f"{item['name']} x{item['quantity']} telah dihapus dari keranjang. Total sementara: Rp{self.total_harga}\n")
+                # Tambahkan stok kembali
+                self.stok.products[product_code]['stock'] += item["quantity"]
+                print(f"{item['name']} x{item['quantity']} telah dihapus dari keranjang. Stok {item['name']} dikembalikan.")
+                print(f"Total sementara: Rp{self.total_harga}\n")
                 return
         print("Item tidak ditemukan di keranjang.\n")
 
@@ -538,10 +545,10 @@ def main():
     stok = StokBarang()
     log = LogAktivitas()
     kembalian = SistemKembalian("kembalian.csv")  # Hubungkan dengan CSV
-    pembayaran = SistemPembayaran(kembalian)  # Hubungkan SistemKembalian dengan SistemPembayaran
+    akun = Akun()  # Inisialisasi akun
+    pembayaran = SistemPembayaran(kembalian, akun)  # Hubungkan SistemKembalian dengan SistemPembayaran dan akun
     display = Display()
     pesanan = PemrosesanPesanan(stok, log, pembayaran)
-    akun = Akun()
     vending_status = MyVendingStatus()
 
     admin_password = "Admin#123"
@@ -599,34 +606,31 @@ def main():
                         print("||         Penambahan Produk ke Keranjang          ||".center(49))
                         print("||=================================================||\n")
                         stok.display_products()
-                        kode_produk = int(input("\nKode produk\t\t: "))
-                        if 1<= kode_produk <= 8:
-                            kuantitas_produk = int(input("Kuantitas produk\t: ")) 
-                            if kuantitas_produk <= 0:
-                                print("Kuantitas produk tidak valid!")
-                                continue  
-                            pesanan.tambah_ke_keranjang(kode_produk, kuantitas_produk)
-                            while True:  
-                                ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()
-        
-                                if ulang == "y" or ulang == "n":
-                                    break  
-                                else:
-                                    print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")
-                        else:
-                            print("Kode produk tidak valid. Harap masukkan kode yang tersedia pada daftar.")
+                        try:
                             kode_produk = int(input("\nKode produk\t\t: "))
+                            if kode_produk in stok.products:
+                                kuantitas_produk = int(input("Kuantitas produk\t: ")) 
+                                if kuantitas_produk <= 0:
+                                    print("Kuantitas produk tidak valid!")
+                                    continue  
+                                pesanan.tambah_ke_keranjang(kode_produk, kuantitas_produk)
+                                ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()
+                                while ulang not in ['y', 'n']:
+                                    print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")
+                                    ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()
+                            else:
+                                print("Kode produk tidak valid. Harap masukkan kode yang tersedia pada daftar.")
+                        except ValueError:
+                            print("Input tidak valid. Masukkan angka.")
 
                 elif pilihan_menubelanja == 2:
-                    # Proses pembayaran
                     clear_screen()
                     print("||=================================================||")
                     print("||                    MY VENDING                   ||".center(49))
                     print("||                    Pembayaran                   ||".center(49))
                     print("||=================================================||")
-                    pesanan.cek_keranjang()
-                    pesanan.proses_checkout()  # Dipanggil tanpa argument, karena menggunakan self.total_harga
-                    break
+                    if pesanan.tampilkan_keranjang():
+                        pesanan.proses_checkout()
 
 
                 elif pilihan_menubelanja == 3:
@@ -641,8 +645,7 @@ def main():
 
                 elif pilihan_menubelanja == 4:
                     # Hapus produk dari keranjang
-                    ulang = "y"
-                    while ulang.lower() == "y":
+                    while True:
                         clear_screen()
                         print("||=================================================||")
                         print("||                    MY VENDING                   ||".center(49))
@@ -652,19 +655,24 @@ def main():
                         # Cek keranjang terlebih dahulu
                         if not pesanan.tampilkan_keranjang():
                             print("\nKeranjang Anda kosong.\n")
-                            ulang = 'n'
-                            continue  # Kembali ke menu sebelumnya
+                            break  # Keluar jika keranjang kosong
                         
                         # Jika keranjang tidak kosong, proses penghapusan
-                        kode_produk = int(input("Kode produk\t: "))
-                        pesanan.hapus_dari_keranjang(kode_produk)  # Proses penghapusan
+                        try:
+                            kode_produk = int(input("Kode produk yang ingin dihapus\t: "))
+                            pesanan.hapus_dari_keranjang(kode_produk)  # Proses penghapusan
+                        except ValueError:
+                            print("Input tidak valid. Masukkan angka untuk kode produk.")
+                            continue
                         
                         # Tanya apakah ingin menghapus produk lain
                         ulang = input("Apakah Anda ingin menghapus produk lainnya dari keranjang (y/n)? ").lower()
                         while ulang not in ['y', 'n']:
                             print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")
                             ulang = input("Apakah Anda ingin menghapus produk lainnya dari keranjang (y/n)? ").lower()
-
+                        
+                        if ulang == 'n':
+                            break  # Keluar dari loop jika pengguna tidak ingin menghapus produk lagi
 
                 elif pilihan_menubelanja == 5: 
                     break  # Kembali ke menu utama
@@ -786,27 +794,36 @@ def main():
                             print("\n1. Tambah Stok Produk")
                             print("2. Kembali ke Menu Admin")
 
-                            pilihan_kelola_produk = int(input("Pilihan: "))
+                            try:
+                                pilihan_kelola_produk = int(input("Pilihan: "))
 
-                            if pilihan_kelola_produk == 1:
-                                kode_produk = int(input("Masukkan kode produk yang ingin ditambah stok: "))
-                                jumlah_tambah = int(input("Masukkan jumlah stok yang ingin ditambahkan: "))
-                                
-                                if kode_produk in stok.products:
-                                    produk = stok.products[kode_produk]
-                                    if not stok.tambah_stok(kode_produk, jumlah_tambah, log):  # Menggunakan fungsi yang diperbaiki
-                                        print(f"Stok {produk['name']} gagal ditambahkan karena akan overload.")
-                                    else:
-                                        print(f"Stok {produk['name']} berhasil ditambah.")
+                                if pilihan_kelola_produk == 1:
+                                    try:
+                                        kode_produk = int(input("Masukkan kode produk yang ingin ditambah stok: "))
+                                        if kode_produk in stok.products:
+                                            jumlah_tambah = int(input("Masukkan jumlah stok yang ingin ditambahkan: "))
+                                            
+                                            # Menambah stok
+                                            if not stok.tambah_stok(kode_produk, jumlah_tambah, log):
+                                                print(f"Stok {stok.products[kode_produk]['name']} gagal ditambahkan karena akan overload.")
+                                            else:
+                                                print(f"Stok {stok.products[kode_produk]['name']} berhasil ditambah.")
+                                        else:
+                                            print("Kode produk tidak ditemukan.")
+                                    except ValueError:
+                                        print("Input tidak valid. Masukkan angka untuk kode produk dan jumlah stok.")
                                     input("\nTekan Enter untuk melanjutkan...")
+
+                                elif pilihan_kelola_produk == 2:
+                                    break  # Kembali ke Menu Admin
+
                                 else:
-                                    print("Kode produk tidak ditemukan.")
+                                    print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!")
                                     input("\nTekan Enter untuk melanjutkan...")
+                            except ValueError:
+                                print("Input tidak valid. Masukkan angka untuk pilihan.")
+                                input("\nTekan Enter untuk melanjutkan...")
 
-                            elif pilihan_kelola_produk == 2:
-                                break  # Kembali ke Menu Admin
-                            else:
-                                print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!")
 
                     
                     elif pilihan_menuadmin == 4:
