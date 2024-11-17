@@ -1,9 +1,9 @@
-Berikut adalah **README.md** yang cocok untuk diunggah ke GitHub:
-
 ```markdown
 # MyVending
 
 MyVending adalah program simulasi mesin vending berbasis Python. Aplikasi ini memungkinkan pengguna untuk membeli produk, mengelola akun, dan melakukan tugas administrasi seperti mengelola stok produk dan memantau status mesin vending.
+
+**Dibuat oleh Kelompok 14, Kelas 30, Computational Thinking, ITB 2024.**
 
 ## Fitur Utama
 - **Belanja Produk:**
@@ -105,29 +105,7 @@ pip install qrcode
 - Simulasi ini tidak terhubung ke sistem pembayaran nyata.
 - QRIS menggunakan kode dummy untuk tujuan demonstrasi.
 
-## Kontribusi
-1. Fork repositori ini.
-2. Buat branch baru:
-   ```bash
-   git checkout -b fitur-baru
-   ```
-3. Lakukan perubahan dan commit:
-   ```bash
-   git commit -m "Tambah fitur baru"
-   ```
-4. Kirim pull request ke repositori ini.
-
-## Lisensi
-Proyek ini dilisensikan di bawah [MIT License](LICENSE).
-
 ---
 
-Jika ada pertanyaan, silakan hubungi pengembang melalui email atau melalui [issue tracker](https://github.com/username/myvending/issues). Selamat menggunakan MyVending! 🎉
+Selamat menggunakan MyVending! 🎉
 ```
-
-### Petunjuk
-1. **Sesuaikan `username`**: Ganti `username` pada URL repositori dengan nama pengguna GitHub Anda.
-2. **Tambahkan screenshot asli**: Gunakan tangkapan layar dari program dan unggah ke repositori GitHub, lalu gunakan tautannya di bagian `Screenshot`.
-3. **Tambahkan file lisensi**: Tambahkan file `LICENSE` untuk proyek, jika diperlukan.
-
-Setelah selesai, unggah `README.md` ini ke repositori Anda di GitHub.
