@@ -1,109 +1,126 @@
-### MyVending
+# MyVending
 
-MyVending adalah program simulasi mesin vending berbasis Python. Aplikasi ini memungkinkan pengguna untuk membeli produk, mengelola akun, dan melakukan tugas administrasi seperti mengelola stok produk dan memantau status mesin vending.
+**MyVending** adalah program simulasi mesin vending berbasis Python. Program ini memungkinkan pengguna untuk membeli produk, mengelola akun, dan melaksanakan tugas administrasi seperti mengelola stok produk dan memantau status mesin vending. 
 
-**Dibuat oleh Kelompok 14, Kelas 30, Computational Thinking, STEI-K ITB 2024.**
+---
 
-Fitur Utama
-a. Belanja Produk:
-  • Melihat daftar produk.
-  • Menambahkan produk ke keranjang.
-  • Membayar dengan berbagai metode:
-    - MyPay (Saldo)
-    - QRIS
-    - Tunai (Cash).
+## ✨ Fitur Utama
+1. **Belanja Produk**
+   - Melihat daftar produk.
+   - Menambahkan produk ke keranjang belanja.
+   - Melakukan pembayaran dengan metode:
+     - **Saldo MyPay**
+     - **QRIS** (Simulasi QR code ASCII)
+     - **Tunai** (Cash).
 
-b. Manajemen Akun:
-  • Membuat akun baru.
-  • Login dan logout akun.
-  • Menambah atau menarik saldo menggunakan MyPay.
+2. **Manajemen Akun**
+   - Membuat akun baru.
+   - Login dan logout akun.
+   - Menambah atau menarik saldo dengan MyPay.
 
-c. Fitur Admin:
-  • Melihat riwayat aktivitas.
-  • Mengelola stok produk di mesin vending.
-  • Memantau status mesin vending (suhu dan kelembapan).
-  • Memeriksa ketersediaan saldo kembalian tunai.
+3. **Fitur Admin**
+   - Melihat riwayat aktivitas.
+   - Mengelola stok produk di mesin vending.
+   - Memantau status mesin vending (suhu dan kelembapan).
+   - Memeriksa ketersediaan saldo kembalian tunai.
 
-* Persyaratan
-1. Python
-Gunakan Python versi 3.7 atau lebih baru.  
-[Download Python di sini -> https://www.python.org/downloads/].
+---
 
-2. Instalasi Pustaka Python
-Pastikan moduke `qrcode` telah terinstal. Jika belum, instal menggunakan perintah:
-```bash
-pip install qrcode
-```
+## ⚙️ Persyaratan
+1. **Python**  
+   Gunakan Python versi **3.7** atau lebih baru.  
+   [Download Python di sini](https://www.python.org/downloads/).
 
-### 3. File Pendukung
-#### File yang diperlukan:
-- **`accounts.csv`**:
-  Menyimpan data akun pengguna. Jika file belum tersedia, buat file dengan format berikut:
-  ```
-  username,password,saldo
-  ```
-  Contoh:
-  ```
-  username,password,saldo
-  user1,pass1,50000
-  ```
+2. **Instalasi Modul Python**
+   Pastikan modul **`qrcode`** telah terinstal. Jika belum, instal dengan perintah:
+   ```bash
+   pip install qrcode
+   ```
 
-- **`kembalian.csv`**:
-  Menyimpan data saldo kembalian tunai. Jika file belum tersedia, program akan membuatnya secara otomatis. Format file:
-  ```
-  nominal,jumlah
-  1000,10
-  2000,10
-  5000,10
-  10000,10
-  20000,10
-  50000,10
-  100000,10
-  ```
+3. **File Pendukung**
+   - **`accounts.csv`**: Menyimpan data akun pengguna. Jika file belum tersedia, buat file dengan format berikut:
+     ```
+     username,password,saldo
+     ```
+     Contoh:
+     ```
+     username,password,saldo
+     user1,pass1,50000
+     user2,pass2,100000
+     ```
+   - **`kembalian.csv`**: Menyimpan data saldo kembalian tunai. Jika file belum tersedia, program akan membuatnya secara otomatis. Format:
+     ```
+     nominal,jumlah
+     1000,50
+     2000,40
+     5000,30
+     10000,20
+     20000,10
+     50000,6
+     100000,2
+     ```
 
-## Cara Menjalankan
+---
+
+## 🚀 Cara Menjalankan
 1. Clone repositori ini:
    ```bash
    git clone https://github.com/username/myvending.git
    cd myvending
    ```
 
-2. Jalankan program menggunakan perintah:
+2. Jalankan program dengan perintah:
    ```bash
    python myvending.py
    ```
 
-## Panduan Penggunaan
-### Menu Utama
-1. **Belanja Produk:**
-   - Pilih produk dengan kode produk dan jumlahnya.
-   - Lakukan checkout menggunakan metode pembayaran yang tersedia.
+---
 
-2. **Login atau Kelola Akun:**
+## 📖 Panduan Penggunaan
+### **Menu Utama**
+1. **Belanja Produk**
+   - Pilih produk berdasarkan kode produk dan tentukan jumlah yang ingin dibeli.
+   - Lakukan checkout dengan metode pembayaran yang tersedia.
+
+2. **Manajemen Akun**
    - Login dengan username dan password.
    - Tambah saldo atau tarik saldo menggunakan MyPay.
 
-3. **Menu Admin:**
-   - Akses dengan password admin: `Admin#123`.
-   - Kelola stok, pantau suhu dan kelembapan, atau lihat riwayat aktivitas.
+3. **Menu Admin**
+   - Akses menggunakan password: `Admin#123`.
+   - Mengelola stok produk, memantau suhu dan kelembapan, atau melihat riwayat aktivitas.
 
-4. **Keluar:**  
-   Pilihan untuk menutup program.
-
-### Fitur Tambahan
-- **Pembayaran QRIS:**
-  Pembayaran dengan QRIS akan menghasilkan kode QR ASCII yang dapat dipindai.  
-  *Catatan:* Kode QR ini hanya untuk simulasi dan berisi tautan dummy.
-
-## Screenshot
-![Screenshot Produk](https://via.placeholder.com/600x300.png?text=Screenshot+Produk)
-![Screenshot Keranjang](https://via.placeholder.com/600x300.png?text=Screenshot+Keranjang)
-![Screenshot Pembayaran](https://via.placeholder.com/600x300.png?text=Screenshot+Pembayaran)
-
-## Catatan
-- Simulasi ini tidak terhubung ke sistem pembayaran nyata.
-- QRIS menggunakan kode dummy untuk tujuan demonstrasi.
+4. **Keluar**
+   - Pilihan untuk menutup program.
 
 ---
 
-Selamat menggunakan MyVending! 🎉
+## 🛠️ Fitur Tambahan
+- **QRIS Simulasi**
+  - Pembayaran melalui QRIS menghasilkan kode QR ASCII yang dapat dipindai.
+  - Catatan: QRIS ini hanya simulasi dan mengarahkan ke tautan dummy.
+
+---
+
+## 📷 Screenshot
+Berikut adalah beberapa tangkapan layar dari program:
+- **Daftar Produk**  
+  ![Screenshot Produk](https://via.placeholder.com/600x300.png?text=Screenshot+Daftar+Produk)
+
+- **Keranjang Belanja**  
+  ![Screenshot Keranjang](https://via.placeholder.com/600x300.png?text=Screenshot+Keranjang)
+
+- **Proses Pembayaran**  
+  ![Screenshot Pembayaran](https://via.placeholder.com/600x300.png?text=Screenshot+Pembayaran)
+
+---
+
+## 📝 Catatan
+- Program ini hanya simulasi dan tidak terhubung ke sistem pembayaran nyata.
+- Semua transaksi QRIS menggunakan kode dummy untuk tujuan demonstrasi.
+
+---
+
+## 📍 Informasi Tim
+**Dibuat oleh Kelompok 14, Kelas 30, Computational Thinking, STEI-K ITB 2024.**  
+Selamat menggunakan MyVending! 🎉  
