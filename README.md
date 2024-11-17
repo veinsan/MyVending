@@ -6,32 +6,32 @@ MyVending adalah program simulasi mesin vending berbasis Python. Aplikasi ini me
 **Dibuat oleh Kelompok 14, Kelas 30, Computational Thinking, STEI-K ITB 2024.**
 
 Fitur Utama
-- **Belanja Produk:**
-  - Melihat daftar produk.
-  - Menambahkan produk ke keranjang.
-  - Membayar dengan berbagai metode:
+a. Belanja Produk:
+  • Melihat daftar produk.
+  • Menambahkan produk ke keranjang.
+  • Membayar dengan berbagai metode:
     - MyPay (Saldo)
     - QRIS
     - Tunai (Cash).
 
-- **Manajemen Akun:**
-  - Membuat akun baru.
-  - Login dan logout akun.
-  - Menambah atau menarik saldo menggunakan MyPay.
+b. Manajemen Akun:
+  • Membuat akun baru.
+  • Login dan logout akun.
+  • Menambah atau menarik saldo menggunakan MyPay.
 
-- **Fitur Admin:**
-  - Melihat riwayat aktivitas.
-  - Mengelola stok produk di mesin vending.
-  - Memantau status mesin vending (suhu dan kelembapan).
-  - Memeriksa ketersediaan saldo kembalian tunai.
+c. Fitur Admin:
+  • Melihat riwayat aktivitas.
+  • Mengelola stok produk di mesin vending.
+  • Memantau status mesin vending (suhu dan kelembapan).
+  • Memeriksa ketersediaan saldo kembalian tunai.
 
-## Persyaratan
-### 1. Python
-Gunakan Python versi **3.7** atau lebih baru.  
-[Download Python di sini](https://www.python.org/downloads/).
+* Persyaratan
+1. Python
+Gunakan Python versi 3.7 atau lebih baru.  
+[Download Python di sini -> https://www.python.org/downloads/].
 
-### 2. Instalasi Pustaka Python
-Pastikan pustaka `qrcode` telah terinstal. Jika belum, instal menggunakan perintah:
+2. Instalasi Pustaka Python
+Pastikan moduke `qrcode` telah terinstal. Jika belum, instal menggunakan perintah:
 ```bash
 pip install qrcode
 ```
