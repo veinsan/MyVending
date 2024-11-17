@@ -105,7 +105,7 @@
 ## 📷 Screenshot
 Berikut adalah beberapa tangkapan layar dari program:
 - **Menu Utama**  
-  ![Menu Utama](https://imgur.com/gallery/menu-utama-myvending-sTnBeoy)
+  ![Menu Utama](https://i.imgur.com/r8kpwJr.png).
 
 - **Keranjang Belanja**  
   ![Screenshot Keranjang](https://via.placeholder.com/600x300.png?text=Screenshot+Keranjang)
