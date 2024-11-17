@@ -108,4 +108,3 @@ pip install qrcode
 ---
 
 Selamat menggunakan MyVending! 🎉
-```
