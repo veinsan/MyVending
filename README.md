@@ -1,11 +1,11 @@
 ```markdown
-# MyVending
+MyVending
 
 MyVending adalah program simulasi mesin vending berbasis Python. Aplikasi ini memungkinkan pengguna untuk membeli produk, mengelola akun, dan melakukan tugas administrasi seperti mengelola stok produk dan memantau status mesin vending.
 
-**Dibuat oleh Kelompok 14, Kelas 30, Computational Thinking, ITB 2024.**
+**Dibuat oleh Kelompok 14, Kelas 30, Computational Thinking, STEI-K ITB 2024.**
 
-## Fitur Utama
+Fitur Utama
 - **Belanja Produk:**
   - Melihat daftar produk.
   - Menambahkan produk ke keranjang.
