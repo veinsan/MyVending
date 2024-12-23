@@ -9,7 +9,6 @@
 # kembalian : Objek dari kelas SistemKembalian untuk mengelola saldo uang kembalian
 # akun : Objek dari kelas Akun untuk fitur login, pembuatan akun, dan pengelolaan saldo
 # pembayaran : Objek dari kelas SistemPembayaran untuk memproses pembayaran (tunai, QRIS, atau saldo)
-# display : Objek dari kelas Display untuk menampilkan antarmuka ke pengguna
 # pesanan : Objek dari kelas PemrosesanPesanan untuk menambahkan produk ke keranjang dan checkout
 # vending_status : Objek dari kelas MyVendingStatus untuk memonitor suhu dan kelembapan mesin
 # admin_password : String, kata sandi untuk mengakses menu admin
@@ -52,6 +51,65 @@
 # - File ini diakses oleh kelas Akun untuk memuat, membuat, memperbarui, dan memvalidasi data akun pengguna.
 # - Saldo pada file ini digunakan untuk sistem pembayaran melalui MyPay.
 
+# feedback.csv : File CSV yang digunakan untuk menyimpan feedback pengguna
+# Format file feedback.csv:
+# rating : Integer, nilai umpan balik dari pengguna (contoh: 1-5)
+# feedback : String, komentar atau masukan dari pengguna
+#
+# Contoh isi file feedback.csv:
+# rating,feedback
+# 4,Sangat memuaskan
+# 2,Layanan kurang memadai
+#
+# Fungsi:
+# - File ini digunakan untuk mencatat dan menampilkan umpan balik pengguna terhadap vending machine.
+
+# keranjang.csv : File CSV yang digunakan untuk menyimpan data keranjang belanja sementara
+# Format file keranjang.csv:
+# code : Integer, kode produk
+# name : String, nama produk
+# quantity : Integer, jumlah item
+# price : Integer, harga total untuk item tersebut
+#
+# Contoh isi file keranjang.csv:
+# code,name,quantity,price
+# 1,Aqua,2,8000
+# 2,Pocari Sweat,1,8000
+#
+# Fungsi:
+# - File ini digunakan untuk mencatat sementara produk-produk yang ditambahkan ke keranjang belanja.
+
+# log_aktivitas.csv : File CSV yang digunakan untuk mencatat aktivitas sistem
+# Format file log_aktivitas.csv:
+# timestamp : String, waktu aktivitas dalam format YYYY-MM-DD HH:MM:SS
+# action : String, jenis aktivitas yang dilakukan
+# detail : String, detail tambahan tentang aktivitas
+#
+# Contoh isi file log_aktivitas.csv:
+# timestamp,action,detail
+# 2024-12-23 07:34:41,Update Expired,Produk Aqua -> 07/25
+# 2024-12-23 08:00:00,Tambah Stok,Produk Pocari Sweat +10
+#
+# Fungsi:
+# - File ini digunakan untuk mencatat semua aktivitas yang terjadi di sistem, seperti perubahan stok, pembaruan expired, atau penambahan saldo.
+
+# stok.csv : File CSV yang digunakan untuk menyimpan data produk dalam vending machine
+# Format file stok.csv:
+# code : Integer, kode produk unik
+# name : String, nama produk
+# price : Integer, harga produk
+# stock : Integer, jumlah stok produk
+# expired : String, tanggal kadaluarsa produk dalam format MM/YY atau lainnya
+#
+# Contoh isi file stok.csv:
+# code,name,price,stock,expired
+# 1,Aqua,4000,20,07/25
+# 2,Pocari Sweat,8000,10,Unknown
+# 3,Teh Pucuk,5000,16,09/25
+#
+# Fungsi:
+# - File ini digunakan untuk memuat dan menyimpan data stok produk, termasuk informasi kadaluarsa.
+
 # ALGORITMA
 import os
 # Modul `os` digunakan untuk berinteraksi dengan sistem operasi, seperti membersihkan layar terminal.
@@ -65,6 +123,8 @@ import csv
 import getpass
 # Modul `getpass` digunakan untuk mengambil input password secara aman (input tidak terlihat saat diketik).
 
+from datetime import datetime
+
 def clear_screen():
     # Fungsi untuk membersihkan layar terminal agar tampilan menu lebih rapi setiap kali di-refresh.
     # `os.system` akan memanggil perintah bawaan sistem operasi:
@@ -72,62 +132,77 @@ def clear_screen():
     # - 'clear' untuk sistem berbasis UNIX (Linux, macOS)
     os.system('cls' if os.name == 'nt' else 'clear')
 
-class Display:
-    # Kelas Display bertanggung jawab untuk menampilkan berbagai tampilan, header, dan menu pada vending machine.
-
-    def header_utama(self):
-        # Menampilkan header utama yang menyambut pengguna saat aplikasi dimulai.
-        print("||=================================================||")
-        print("||           SELAMAT DATANG DI MYVENDING           ||".center(49))
-        print("||=================================================||")
-        print("||                Selamat berbelanja!              ||".center(49))
-        print("||=================================================||")
-
-    def header_myvending():
-        # Menampilkan header utama dengan label "MY VENDING".
-        print("||=================================================||")
-        print("||                    MY VENDING                   ||".center(49))
-        print("||=================================================||")
-    
-    def menu_admin(self):
-        # Menampilkan menu pilihan yang tersedia untuk administrator.
-        print("\n\n|----------------------------------------------------|")
-        print("| MENU ADMIN                                        |".center(49))
-        print("| 1. Tampilkan Riwayat Aktivitas                    |".center(49))
-        print("| 2. Status MyVending                               |".center(49))
-        print("| 3. Kelola Produk di MyVending                     |".center(49))
-        print("| 4. Cek Saldo Kembalian Tunai                      |".center(49))
-        print("| 5. Kembali ke Menu Utama                          |".center(49))
-        print("|----------------------------------------------------|")
-
 class StokBarang:
-    # Kelas untuk mengelola stok barang dalam vending machine, termasuk menampilkan daftar produk,
-    # mengecek ketersediaan stok, dan menambah stok produk.
+    def __init__(self, file_name="stok.csv"):
+        self.file_name = file_name  # Menyimpan nama file CSV yang digunakan untuk menyimpan data produk.
+        self.products = self.load_products()  # Memuat data produk dari file atau membuat data default jika file tidak ada.
 
-    def __init__(self):
-        # Konstruktor untuk inisialisasi data produk.
-        # Data produk disimpan dalam dictionary dengan format:
-        # {kode_produk: {"name": nama_produk, "price": harga, "stock": jumlah_stok}}
-        self.products = {
-            1: {"name": "Aqua", "price": 4000, "stock": 10},
-            2: {"name": "Pocari Sweat", "price": 8000, "stock": 10},
-            3: {"name": "Teh Pucuk", "price": 5000, "stock": 10},
-            4: {"name": "Lime", "price": 5000, "stock": 10},
-            5: {"name": "Coca cola", "price": 5000, "stock": 10},
-            6: {"name": "Cap Kaki Tiga", "price": 9000, "stock": 10},
-            7: {"name": "Floridina", "price": 5000, "stock": 10}
-        }
+    def load_products(self):
+        if not os.path.exists(self.file_name):  # Mengecek apakah file stok ada.
+            # Jika file tidak ada, membuat data default produk.
+            return {
+                1: {"name": "Aqua", "price": 4000, "stock": 10, "expired": "Jul 2025"},
+                2: {"name": "Pocari Sweat", "price": 8000, "stock": 10, "expired": "Jul 2025"},
+                3: {"name": "Teh Pucuk", "price": 5000, "stock": 10, "expired": "Jul 2025"},
+                4: {"name": "Lime", "price": 5000, "stock": 10, "expired": "Jul 2025"},
+                5: {"name": "Coca cola", "price": 5000, "stock": 10, "expired": "Jul 2025"},
+                6: {"name": "Cap Kaki Tiga", "price": 9000, "stock": 10, "expired": "Jul 2025"},
+                7: {"name": "Floridina", "price": 5000, "stock": 10, "expired": "Jul 2025"}
+            }
+
+        products = {}  # Dictionary untuk menyimpan data produk dari file CSV.
+        with open(self.file_name, mode='r') as file:  # Membuka file CSV dalam mode baca.
+            reader = csv.DictReader(file)  # Membaca file CSV sebagai dictionary.
+            for row in reader:
+                try:
+                    # Mengisi dictionary produk berdasarkan data dalam file.
+                    products[int(row["code"])] = {
+                        "name": row["name"],  # Nama produk.
+                        "price": int(row["price"]),  # Harga produk.
+                        "stock": int(row["stock"]),  # Jumlah stok produk.
+                        "expired": row.get("expired", "Unknown")  # Tanggal expired produk.
+                    }
+                except KeyError as e:
+                    # Menampilkan pesan error jika ada kolom yang hilang.
+                    print(f"Error reading product: Missing key {e}")
+        return products  # Mengembalikan data produk sebagai dictionary.
+
+    def save_products(self):
+        with open(self.file_name, mode='w', newline='') as file:  # Membuka file CSV dalam mode tulis.
+            fieldnames = ["code", "name", "price", "stock", "expired"]  # Kolom yang akan ditulis ke file.
+            writer = csv.DictWriter(file, fieldnames=fieldnames)  # Membuat writer untuk menulis data ke CSV.
+            writer.writeheader()  # Menulis header kolom.
+            for code, product in self.products.items():
+                # Menulis setiap produk ke file CSV.
+                writer.writerow({
+                    "code": code,  # Kode produk.
+                    "name": product["name"],  # Nama produk.
+                    "price": product["price"],  # Harga produk.
+                    "stock": product["stock"],  # Stok produk.
+                    "expired": product["expired"]  # Tanggal expired produk.
+                })
 
     def display_products(self):
-        # Fungsi untuk menampilkan daftar produk yang tersedia dalam vending machine.
+        # Menampilkan daftar produk dalam vending machine.
         print("                    DAFTAR PRODUK                    ")
         print("|---------------------------------------------------|")
         print("| Kode | Produk           | Harga      | Stok       |")
         print("|---------------------------------------------------|")
         for code, product in self.products.items():
-            # Menampilkan informasi setiap produk: kode, nama, harga, dan jumlah stok.
+            # Menampilkan detail produk: kode, nama, harga, stok.
             print(f"| {code:<4} | {product['name']:<16} | Rp{product['price']:<8} | {product['stock']:<8}   |")
         print("|---------------------------------------------------|")
+    
+    def display_products_admin(self):
+        # Menampilkan daftar produk untuk admin dengan tambahan tanggal expired.
+        print("                            DAFTAR PRODUK                            ")
+        print("|---------------------------------------------------|---------------|")
+        print("| Kode | Produk           | Harga      | Stok       | Expired       |")
+        print("|---------------------------------------------------|---------------|")
+        for code, product in self.products.items():
+            # Menampilkan detail produk: kode, nama, harga, stok, dan tanggal expired.
+            print(f"| {code:<4} | {product['name']:<16} | Rp{product['price']:<8} | {product['stock']:<8}   | {product['expired']:<13} |")
+        print("|-------------------------------------------------------------------|")
     
     def check_stock_and_update(self, product_code, quantity):
         # Fungsi untuk mengecek stok produk dan mengurangi stok jika tersedia.
@@ -166,6 +241,7 @@ class StokBarang:
             else:
                 # Jika kapasitas mencukupi, tambahkan stok dan catat riwayatnya.
                 self.products[product_code]["stock"] += tambahan
+                self.save_products()
                 log.add_log("Tambah Stok", f"{self.products[product_code]['name']} - Tambah {tambahan} (Total: {self.products[product_code]['stock']})")
                 print(f"\nStok {self.products[product_code]['name']} berhasil ditambahkan sebanyak {tambahan}. \nTotal stok {self.products[product_code]['name']}: {self.products[product_code]['stock']}.")
                 return True
@@ -173,33 +249,114 @@ class StokBarang:
             # Jika kode produk tidak valid, tampilkan pesan kesalahan.
             print("Kode produk tidak valid.")
             return False
+        
+    def kurangi_stok(self, product_code, pengurangan, log):
+        # Fungsi untuk mengurangi stok suatu produk.
+        # Parameter:
+        # - product_code: Kode produk yang ingin dikurangi stoknya.
+        # - pengurangan: Jumlah stok yang ingin dikurangi.
+        # - log: Objek LogAktivitas untuk mencatat riwayat pengurangan stok.
+
+        if product_code in self.products:
+            current_stock = self.products[product_code]["stock"]
+            if current_stock - pengurangan < 0:
+                # Jika total stok melebihi kapasitas minimum (0), tampilkan pesan peringatan.
+                print(f"\nPengurangan stok melebihi jumlah stok yang tersedia saat ini. \nStok saat ini\t: {current_stock} \nPengurangan\t: {pengurangan}")
+                print("Pengurangan stok produk tidak dapat dilakukan!")
+                return False
+            else:
+                # Jika kapasitas mencukupi, kurangi stok dan catat riwayatnya.
+                self.products[product_code]["stock"] -= pengurangan
+                self.save_products()
+                log.add_log("Kurangi Stok", f"{self.products[product_code]['name']} - Pengurangan {pengurangan} (Total: {self.products[product_code]['stock']})")
+                print(f"\nStok {self.products[product_code]['name']} berhasil dikurangi sebanyak {pengurangan}. \nTotal stok {self.products[product_code]['name']}: {self.products[product_code]['stock']}")
+                return True
+        else:
+            # Jika kode produk tidak valid, tampilkan pesan kesalahan.
+            print("Kode produk tidak valid.")
+            return False
+    
+    def atur_expired(self, product_code, expired_baru, log):
+        import re       
+        # Fungsi untuk mengatur expired baru suatu produk.
+        # Parameter:
+        # - product_code: Kode produk yang ingin dikurangi stoknya.
+        # - expired_baru: Batas kadaluarsa baru suatu produk setelah diganti dengan produk baru.
+        # - log: Objek LogAktivitas untuk mencatat riwayat pengurangan stok.
+            # Validasi input hanya berupa bulan dan tahun
+        pattern = r"^(0[1-9]|1[0-2])\/\d{2}$"
+        if not re.match(pattern, expired_baru):
+            print("Input tidak valid. Format kadaluarsa harus berupa 'MM/YY' (contoh: 07/25).")
+            return False
+
+        if product_code in self.products:
+            # Perbarui data expired pada produk
+            self.products[product_code]["expired"] = expired_baru
+            self.save_products()
+            log.add_log("Update Expired", f"Produk {self.products[product_code]['name']} -> {expired_baru}")
+            print("Tanggal expired berhasil diperbarui.")
+            return True
+        else:
+            print("Kode produk tidak valid.")
+            return False
+
+    def tambahkan_produk_baru(self, code, name, price, stock, expired):
+        # Menambahkan produk baru ke vending machine.
+        self.products[code] = {
+            "name": name,  # Nama produk.
+            "price": price,  # Harga produk.
+            "stock": stock,  # Jumlah stok produk.
+            "expired": expired  # Tanggal expired produk.
+        }
+        self.save_products()  # Menyimpan data produk ke file.
+        print(f"Produk baru {name} berhasil ditambahkan.")  # Menampilkan pesan sukses.
 
 class LogAktivitas:
-    # Kelas untuk mencatat dan menampilkan riwayat aktivitas yang dilakukan dalam sistem vending machine.
-
-    def __init__(self):
-        # Konstruktor untuk inisialisasi atribut history, yang menyimpan riwayat aktivitas.
-        self.history = [] #Riwayat aktivitas disimpan dalam bentuk list.
+    def __init__(self, log_file="log_aktivitas.csv"):
+        # Inisialisasi atribut untuk mencatat log aktivitas.
+        self.log_file = log_file  # Menyimpan nama file CSV untuk menyimpan data log aktivitas.
+        self.history = []  # List untuk menyimpan riwayat aktivitas selama runtime program.
 
     def add_log(self, action, detail):
         # Fungsi untuk menambahkan entri log ke dalam riwayat aktivitas.
-        # Parameter:
-        # - action: Deskripsi singkat tentang jenis aktivitas (misalnya, "Pembelian" atau "Tambah Stok").
-        # - detail: Informasi tambahan tentang aktivitas (misalnya, produk yang dibeli atau jumlah stok yang ditambahkan).
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")  # Mendapatkan waktu saat aktivitas dilakukan.
-        self.history.append({"timestamp": timestamp, "action": action, "detail": detail}) # Menyimpan entri log sebagai dictionary.
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  
+        # Mendapatkan waktu saat ini dalam format YYYY-MM-DD HH:MM:SS.
+
+        entry = {"timestamp": timestamp, "action": action, "detail": detail}  
+        # Membuat dictionary untuk menyimpan data log: waktu, aksi, dan detail.
+
+        self.history.append(entry)  
+        # Menambahkan entri log ke dalam list history untuk mencatat aktivitas selama runtime.
+
+        with open(self.log_file, mode='a', newline='') as file:  
+            # Membuka file log dalam mode append untuk menambahkan data baru tanpa menghapus data lama.
+            writer = csv.DictWriter(file, fieldnames=["timestamp", "action", "detail"])  
+            # Membuat writer untuk menulis data log ke file CSV.
+            
+            if file.tell() == 0:  
+                # Mengecek apakah file kosong. Jika iya, tambahkan header kolom.
+                writer.writeheader()
+            
+            writer.writerow(entry)  
+            # Menulis entri log ke dalam file CSV.
 
     def show_history(self):
-        # Fungsi untuk menampilkan semua riwayat aktivitas yang tercatat.
-        print("\n|-------------------------------------------------|")
-        if not self.history:
-            # Jika tidak ada aktivitas yang tercatat, tampilkan pesan bahwa riwayat masih kosong.
-            print("|           Belum ada riwayat aktivitas           |".center(49))
-        else:
-            # Jika ada aktivitas, tampilkan setiap entri dalam format yang rapi.
-            for entry in self.history:
-                print(f"|| [{entry['timestamp']}] {entry['action']} - {entry['detail']}                  ||")
-        print("|-------------------------------------------------|")
+        # Fungsi untuk menampilkan semua riwayat aktivitas dari file CSV.
+        if not os.path.exists(self.log_file):  
+            # Mengecek apakah file log ada. Jika tidak, tampilkan pesan bahwa belum ada riwayat aktivitas.
+            print("Belum ada riwayat aktivitas.")
+            return
+
+        with open(self.log_file, mode='r') as file:  
+            # Membuka file log dalam mode baca.
+            reader = csv.DictReader(file)  
+            # Membaca file CSV sebagai dictionary untuk mempermudah akses data kolom.
+
+            print("\n| Timestamp            | Action          | Detail")
+            print("|----------------------|-----------------|-------------------------------")
+            for row in reader:  
+                # Iterasi setiap baris dalam file log dan menampilkan data ke layar.
+                print(f"| {row['timestamp']:<20} | {row['action']:<15} | {row['detail']:<30}")
 
 class SistemPembayaran:
     # Kelas untuk mengatur berbagai metode pembayaran dalam sistem vending machine.
@@ -226,8 +383,7 @@ class SistemPembayaran:
             # Jika saldo pengguna mencukupi, kurangi saldo dengan total harga.
             self.akun.logged_in_user['saldo'] = int(self.akun.logged_in_user['saldo']) - total_harga
             print(f"Pembayaran berhasil menggunakan saldo MyPay. Sisa saldo: Rp{self.akun.logged_in_user['saldo']}.")      
-            # Perbarui saldo pengguna di file CSV.
-            self.akun.update_saldo_csv()
+            self.akun.update_saldo_csv()  # Perbarui saldo pengguna di file CSV.
             return True
         else:
             # Jika saldo tidak mencukupi, tampilkan pesan kesalahan.
@@ -249,18 +405,19 @@ class SistemPembayaran:
         qr.make(fit=True)  # Menyesuaikan ukuran QR code.
         qr.print_ascii(tty=True)  # Menampilkan QR code dalam format ASCII.
         print("\nQRIS berhasil dibuat. Silakan pindai kode QR di atas untuk menyelesaikan pembayaran.")
+        return True
 
     def bayar_dengan_tunai(self, total_harga):
         # Metode untuk memproses pembayaran menggunakan uang tunai.
         # Parameter:
         # - total_harga: Jumlah total harga yang harus dibayar.
         print("\nMasukkan nominal uang yang digunakan untuk membayar (gunakan pecahan Rp1000, Rp2000, Rp5000, Rp10000, Rp20000, Rp50000, Rp100000).")
-        sisa_pembayaran = total_harga
+        sisa_pembayaran = total_harga  # Inisialisasi sisa pembayaran dengan total harga.
         while sisa_pembayaran > 0:
             # Loop untuk meminta input uang dari pengguna hingga total pembayaran terpenuhi.
-            nominal = int(input(f"Sisa pembayaran\t\t: Rp{sisa_pembayaran}. \nNominal\t\t\t: Rp"))
+            nominal = int(input(f"Sisa pembayaran\t\t: Rp{sisa_pembayaran} \nNominal\t\t\t: Rp"))
             jumlah = int(input(f"Banyak lembar Rp{nominal}\t: "))
-            total_input = nominal * jumlah
+            total_input = nominal * jumlah  # Menghitung total uang yang dimasukkan.
 
             if total_input >= sisa_pembayaran:
                 # Jika uang yang dimasukkan cukup atau lebih, hitung kembalian.
@@ -291,9 +448,9 @@ class SistemPembayaran:
             return self.bayar_dengan_saldo(total_harga)
         elif pilihan_pembayaran == 2:
             # Proses pembayaran menggunakan QRIS.
-            link_qris = "https://youtu.be/dQw4w9WgXcQ?si=SgIGQBGfMir4h7VY"  # Contoh link QRIS.
+            link_qris = "https://i.imgur.com/XMC9cZy.jpeg"  # Contoh link QRIS.
             print("\nPembayaran melalui QRIS sedang diproses...")
-            self.generate_qris_ascii(link_qris)
+            self.generate_qris_ascii(link_qris)  # Membuat QR code ASCII untuk QRIS.
             input("Tekan Enter setelah melakukan pembayaran.")
             print("Pembayaran dengan QRIS berhasil.")
             return True
@@ -308,114 +465,183 @@ class SistemPembayaran:
 class PemrosesanPesanan:
     # Kelas untuk menangani proses pemesanan, keranjang belanja, dan checkout dalam vending machine.
 
-    def __init__(self, stok, log, pembayaran):
+    def __init__(self, stok, log, pembayaran, cart_file="keranjang.csv"):
         # Konstruktor untuk menginisialisasi objek PemrosesanPesanan.
         # Parameter:
-        # - stok: Objek dari kelas StokBarang untuk mengatur ketersediaan barang.
-        # - log: Objek dari kelas LogAktivitas untuk mencatat aktivitas pengguna.
-        # - pembayaran: Objek dari kelas SistemPembayaran untuk memproses pembayaran.
-        self.stok = stok  # Referensi ke stok barang.
-        self.log = log  # Referensi ke log aktivitas.
-        self.pembayaran = pembayaran  # Referensi ke sistem pembayaran.
-        self.cart = []  # Keranjang belanja pengguna, berupa daftar produk.
-        self.total_harga = 0  # Total harga awal, diatur ke nol.
+        # - stok: Objek StokBarang untuk mengelola data produk di vending machine.
+        # - log: Objek LogAktivitas untuk mencatat aktivitas sistem.
+        # - pembayaran: Objek SistemPembayaran untuk memproses transaksi pembayaran.
+        # - cart_file: Nama file CSV untuk menyimpan data keranjang belanja (default: keranjang.csv).
+        self.stok = stok  # Referensi ke objek StokBarang.
+        self.log = log  # Referensi ke objek LogAktivitas.
+        self.pembayaran = pembayaran  # Referensi ke objek SistemPembayaran.
+        self.cart_file = cart_file  # File CSV untuk menyimpan data keranjang.
+        self.cart = self.load_cart()  # Memuat data keranjang dari file CSV.
+        self.total_harga = 0  # Variabel untuk menyimpan total harga barang di keranjang.
+
+    def load_cart(self):
+        # Fungsi untuk memuat data keranjang belanja dari file CSV.
+        # Return: Daftar item yang ada di keranjang beserta informasi terkait.
+
+        if not os.path.exists(self.cart_file):  # Periksa apakah file keranjang ada.
+            return []  # Jika file tidak ditemukan, kembalikan daftar kosong.
+
+        cart = []  # Inisialisasi daftar untuk menyimpan data keranjang.
+        self.total_harga = 0  # Reset total harga saat memuat ulang data keranjang.
+
+        with open(self.cart_file, mode='r') as file:  # Buka file CSV untuk membaca data.
+            reader = csv.DictReader(file)  # Membaca data CSV sebagai dictionary.
+            for row in reader:  # Iterasi setiap baris data di file CSV.
+                try:
+                    quantity = int(row["quantity"])  # Pastikan jumlah item berupa angka.
+                    price = int(row["price"])  # Pastikan harga berupa angka.
+                    cart.append({
+                        "code": int(row["code"]),  # Tambahkan kode produk ke keranjang.
+                        "name": row["name"],  # Tambahkan nama produk ke keranjang.
+                        "quantity": quantity,  # Tambahkan jumlah item ke keranjang.
+                        "price": price  # Tambahkan harga item ke keranjang.
+                    })
+                    self.total_harga += price  # Tambahkan harga item ke total harga.
+                except ValueError:  # Tangkap kesalahan format data.
+                    print(f"Kesalahan format data pada baris: {row}")  # Tampilkan pesan kesalahan.
+                    continue  # Abaikan baris dengan format salah.
+
+        return cart  # Kembalikan daftar keranjang belanja yang berhasil dimuat.
+
+    def save_cart(self):
+        # Fungsi untuk menyimpan data keranjang belanja ke file CSV.
+        with open(self.cart_file, mode='w', newline='') as file:  # Buka file CSV untuk menulis data.
+            fieldnames = ["code", "name", "quantity", "price"]  # Header kolom untuk file CSV.
+            writer = csv.DictWriter(file, fieldnames=fieldnames)  # Inisialisasi writer untuk file CSV.
+            writer.writeheader()  # Tulis header ke file CSV.
+            for item in self.cart:  # Iterasi setiap item di keranjang.
+                writer.writerow(item)  # Tulis data item ke file CSV.
 
     def tambah_ke_keranjang(self, product_code, quantity):
-        # Metode untuk menambahkan produk ke keranjang belanja.
+        # Fungsi untuk menambahkan produk ke keranjang belanja.
         # Parameter:
         # - product_code: Kode produk yang ingin ditambahkan.
         # - quantity: Jumlah produk yang ingin ditambahkan.
-        if self.stok.check_stock_and_update(product_code, quantity):
-            # Jika stok produk mencukupi, tambahkan produk ke keranjang.
-            produk = self.stok.products[product_code]
-            self.cart.append({
-                "code": product_code, 
-                "name": produk["name"], 
-                "quantity": quantity, 
-                "price": produk["price"] * quantity
-            })
-            self.total_harga += produk["price"] * quantity  # Tambahkan harga produk ke total harga.
-            print(f"\n{quantity} {produk['name']} telah ditambahkan ke keranjang. \nTotal sementara: Rp{self.total_harga}\n")
-        else:
-            # Jika stok tidak mencukupi, tampilkan pesan kesalahan.
-            print("\nStok tidak mencukupi! Produk gagal ditambahkan.\n")
+        product = self.stok.products.get(product_code)  # Dapatkan data produk berdasarkan kode.
+        if not product or product["stock"] < quantity:  # Periksa apakah stok mencukupi.
+            print(f"Stok tidak cukup untuk {product['name']}!")  # Tampilkan pesan jika stok kurang.
+            return False  # Gagal menambahkan ke keranjang.
 
-    def hapus_dari_keranjang(self, product_code):
-        # Metode untuk menghapus produk dari keranjang belanja.
+        product_in_cart = next((item for item in self.cart if item["code"] == product_code), None)  
+        # Periksa apakah produk sudah ada di keranjang.
+        if product_in_cart:  # Jika produk sudah ada di keranjang.
+            product_in_cart["quantity"] += quantity  # Tambahkan jumlah produk di keranjang.
+            product_in_cart["price"] += product["price"] * quantity  # Hitung ulang harga total produk.
+        else:
+            self.cart.append({
+                "code": product_code,
+                "name": product["name"],
+                "quantity": quantity,
+                "price": product["price"] * quantity
+            })  # Tambahkan produk baru ke keranjang.
+
+        self.stok.products[product_code]["stock"] -= quantity  # Kurangi stok produk di vending machine.
+        self.total_harga = sum(item["price"] for item in self.cart)  # Hitung ulang total harga keranjang.
+        self.save_cart()  # Simpan data keranjang ke file CSV.
+        self.stok.save_products()  # Simpan perubahan stok ke file CSV.
+
+        print(f"{quantity} {product['name']} telah ditambahkan ke keranjang. Total sementara: Rp{self.total_harga}")
+        return True  # Berhasil menambahkan ke keranjang.
+
+    def kurangi_dari_keranjang(self, product_code, quantity):
+        # Fungsi untuk mengurangi produk dari keranjang belanja.
         # Parameter:
-        # - product_code: Kode produk yang ingin dihapus dari keranjang.
-        for item in self.cart:
-            if item["code"] == product_code:
-                # Jika produk ditemukan dalam keranjang, hapus produk tersebut.
-                self.cart.remove(item)
-                self.total_harga -= item["price"]  # Kurangi harga produk dari total harga.
-                self.stok.products[product_code]['stock'] += item["quantity"]  # Tambahkan kembali stok produk.
-                print(f"\n{item['name']} x{item['quantity']} telah dihapus dari keranjang. Stok {item['name']} dikembalikan.")
-                print(f"Total sementara: Rp{self.total_harga}\n")
-                return
-        # Jika produk tidak ditemukan dalam keranjang, tampilkan pesan kesalahan.
-        print("Item tidak ditemukan di keranjang.\n")
+        # - product_code: Kode produk yang ingin dikurangi.
+        # - quantity: Jumlah produk yang ingin dikurangi.
+        product = self.stok.products.get(product_code)  # Dapatkan data produk berdasarkan kode.
+        product_in_cart = next((item for item in self.cart if item["code"] == product_code), None)  
+        # Cari produk di keranjang berdasarkan kode.
+        if product_in_cart:  # Jika produk ditemukan di keranjang.
+            if product_in_cart["quantity"] > quantity:  # Jika jumlah di keranjang lebih dari yang ingin dikurangi.
+                product_in_cart["quantity"] -= quantity  # Kurangi jumlah produk di keranjang.
+                product_in_cart["price"] -= quantity * product["price"]  # Hitung ulang harga total produk.
+                self.stok.products[product_code]["stock"] += quantity  # Tambahkan kembali stok ke vending machine.
+                self.save_cart()  # Simpan perubahan ke file CSV.
+                print(f"{quantity} dari {product_in_cart['name']} dikurangi di keranjang.")
+            elif product_in_cart["quantity"] == quantity:  # Jika jumlah yang ingin dikurangi sama dengan yang di keranjang.
+                self.cart.remove(product_in_cart)  # Hapus produk dari keranjang.
+                self.stok.products[product_code]["stock"] += quantity  # Tambahkan kembali stok ke vending machine.
+                self.stok.save_products()  # Simpan perubahan stok ke file CSV.
+                print(f"{product_in_cart['name']} dihapus dari keranjang.")
+            else:
+                print(f"Tidak bisa mengurangi lebih dari kuantitas yang ada di keranjang.")  # Jumlah melebihi kuantitas di keranjang.
+        else:
+            print(f"Item {product_code} tidak ditemukan di keranjang.")  # Produk tidak ditemukan di keranjang.
 
     def cek_keranjang(self):
-        # Metode untuk memeriksa apakah keranjang belanja kosong.
-        # Mengembalikan True jika keranjang tidak kosong, False jika kosong.
-        if not self.cart:
-            print("\n" + "Keranjang Anda kosong.\n".center(55))
-            return False
+        # Fungsi untuk memeriksa apakah keranjang belanja kosong.
+        if not self.cart:  # Jika keranjang kosong.
+            print("\n" + "Keranjang Anda kosong.\n".center(55))  # Tampilkan pesan bahwa keranjang kosong.
+            return False  # Keranjang kosong.
         else:
-            return True
+            return True  # Keranjang berisi item.
 
     def tampilkan_keranjang(self):
-        # Metode untuk menampilkan isi keranjang belanja.
+        # Fungsi untuk menampilkan isi keranjang belanja.
+        self.total_harga = sum(item['price'] for item in self.cart)  # Hitung ulang total harga.
         print("\n|---------------------------------------------------|")
-        print("|                   KERANJANG BELANJA               |".center(49))
+        print("|                   KERANJANG BELANJA               |")
         print("|---------------------------------------------------|")
         print("| Kode | Nama Produk           | Jumlah | Harga     |")
         print("|---------------------------------------------------|")
-        for item in self.cart:
-            # Tampilkan setiap item dalam keranjang.
+        for item in self.cart:  # Iterasi setiap item di keranjang.
             print(f"| {item['code']:<4} | {item['name']:<21} | {'x' + str(item['quantity']):^6} | Rp{item['price']:<7} |")
         print("|---------------------------------------------------|")
-        print(f"| Total Harga: {' ':<25} {' Rp' + str(self.total_harga):<10} |")
+        print(f"| Total Harga: {' ':<25}  Rp{self.total_harga:<7} |")  # Tampilkan total harga.
         print("|---------------------------------------------------|\n")
 
     def proses_checkout(self):
-        # Metode untuk memproses checkout dan pembayaran.
-        if not self.cart:
-            # Jika keranjang kosong, tampilkan pesan dan batalkan checkout.
-            print("Keranjang Anda kosong. Tambahkan produk terlebih dahulu.\n")
+        # Fungsi untuk memproses pembayaran keranjang belanja.
+        if not self.cart:  # Periksa apakah keranjang kosong.
+            print("Keranjang Anda kosong. Tambahkan produk terlebih dahulu.\n")  # Tampilkan pesan jika kosong.
             return
 
-        # Menampilkan isi keranjang sebelum memproses pembayaran.
-        self.tampilkan_keranjang()
+        self.tampilkan_keranjang()  # Tampilkan isi keranjang.
 
-        # Proses pembayaran melalui sistem pembayaran.
-        if self.pembayaran.proses_checkout(self.total_harga):
-            # Jika pembayaran berhasil, catat pembelian ke log dan cetak struk.
-            for item in self.cart:
+        if self.pembayaran.proses_checkout(self.total_harga):  # Proses pembayaran.
+            for item in self.cart:  # Catat riwayat pembelian.
                 self.log.add_log("Pembelian", f"{item['name']} x{item['quantity']} - Rp{item['price']}")
             self.cetak_struk()  # Cetak struk pembayaran.
-            print("\nTransaksi berhasil!")
-            self.cart = []  # Kosongkan keranjang setelah checkout.
-            self.total_harga = 0  # Reset total harga setelah transaksi selesai.
+            print("\nTransaksi berhasil!")  # Tampilkan pesan berhasil.
+
+            self.cart.clear()  # Kosongkan keranjang.
+            self.total_harga = 0  # Reset total harga.
+            self.save_cart()  # Simpan perubahan keranjang.
+            self.stok.save_products()  # Simpan perubahan stok.
+            feedback_handler = Feedback()  # Inisialisasi handler feedback.
+            while True:
+                try:
+                    rating = int(input("\nSilakan beri rating (1-5): ").strip())  # Minta input rating.
+                    if rating < 1 or rating > 5:
+                        raise ValueError("Rating harus antara 1 hingga 5.")  # Validasi rating.
+                    break
+                except ValueError:
+                    print("Input tidak valid. Masukkan angka 1 sampai 5.")  # Tampilkan pesan error.
+
+            feedback = input("Silakan tuliskan feedback Anda: ").strip()  # Minta feedback dari pengguna.
+            feedback_handler.save_feedback(rating, feedback)  # Simpan feedback ke sistem.
+            print("Feedback Anda telah tersimpan. Terima kasih telah berbelanja di MyVending. Sampai jumpa lagi!")
         else:
-            # Jika pembayaran gagal, tampilkan pesan kesalahan.
-            print("Pembayaran gagal. Silakan coba lagi.")
-        
+            print("Pembayaran gagal. Silakan coba lagi.")  # Tampilkan pesan jika pembayaran gagal.
+
     def cetak_struk(self):
-        # Metode untuk mencetak struk pembayaran setelah checkout berhasil.
+        # Fungsi untuk mencetak struk pembayaran.
         print("\n|================= STRUK PEMBAYARAN ================|")
-        print(f"| Waktu Transaksi:              {time.strftime('%Y-%m-%d %H:%M:%S')} |")
+        print(f"| Waktu Transaksi:              {time.strftime('%Y-%m-%d %H:%M:%S')} |")  # Tampilkan waktu transaksi.
         print("|---------------------------------------------------|")
         print("| Produk               | Jumlah | Harga Total       |")
         print("|---------------------------------------------------|")
-        for item in self.cart:
-            # Tampilkan informasi setiap produk dalam struk.
+        for item in self.cart:  # Iterasi setiap item di keranjang.
             print(f"| {item['name']:<20} | {item['quantity']:<6} | Rp{item['price']:<15} |")
         print("|---------------------------------------------------|")
-        print(f"| Total Harga: {' ':<18} Rp{self.total_harga:<15} |")
+        print(f"| Total Harga: {' ':<18} Rp{self.total_harga:<15} |")  # Tampilkan total harga.
         print("|---------------------------------------------------|")
-        print("|    Terima kasih telah berbelanja di MYVENDING!    |")
+        print("|    Terima kasih telah berbelanja di MYVENDING!    |")  # Tampilkan pesan terima kasih.
         print("|===================================================|")
 
 class Akun:
@@ -777,6 +1003,39 @@ class SistemKembalian:
         print(f"Menambahkan Rp{nominal} x{jumlah} ke saldo kembalian.")
         self.update_kembalian(nominal, jumlah)  # Memperbarui data kembalian.
 
+class Feedback:
+    # Kelas untuk menangani penyimpanan dan penampilan feedback pengguna.
+
+    def __init__(self, file_name="feedback.csv"):
+        # Konstruktor untuk menginisialisasi objek Feedback.
+        # Parameter:
+        # - file_name: Nama file CSV tempat feedback disimpan.
+        self.file_name = file_name
+
+    def save_feedback(self, rating, feedback):
+        # Metode untuk menyimpan feedback pengguna ke file CSV.
+        # Parameter:
+        # - rating: Penilaian pengguna dalam bentuk angka (1-5).
+        # - feedback: Ulasan atau komentar pengguna dalam bentuk teks.
+        with open(self.file_name, mode='a', newline='') as file:
+            writer = csv.writer(file)  # Menggunakan csv.writer untuk menulis data ke file.
+            writer.writerow([rating, feedback])  # Menulis baris baru berisi rating dan feedback ke file.
+        print("Terima kasih atas feedback Anda!")  # Menampilkan pesan sukses.
+
+    def display_feedback(self):
+        # Metode untuk menampilkan semua feedback yang telah disimpan.
+        try:
+            # Membuka file CSV dan membaca feedback yang tersedia.
+            with open(self.file_name, mode='r') as file:
+                reader = csv.reader(file)  # Membaca data dari file dengan csv.reader.
+                for idx, row in enumerate(reader, start=1):
+                    # Menampilkan setiap feedback dengan format tertentu.
+                    print(f"\nFeedback {idx} dari Anonim")
+                    print(f"Rating\t\t: {row[0]} \nFeedback\t: {row[1]}\n")
+        except FileNotFoundError:
+            # Jika file tidak ditemukan, tampilkan pesan bahwa belum ada feedback.
+            print("\nBelum ada feedback yang tersedia.")
+
 def main():
     # Inisialisasi objek untuk berbagai kelas yang digunakan dalam program
     stok = StokBarang()  # Digunakan untuk mengelola stok produk
@@ -784,14 +1043,14 @@ def main():
     kembalian = SistemKembalian("kembalian.csv")  # Membaca dan mengelola saldo kembalian dari file CSV
     akun = Akun()  # Mengelola akun pengguna, seperti login dan saldo
     pembayaran = SistemPembayaran(kembalian, akun)  # Untuk mengatur berbagai metode pembayaran
-    display = Display()  # Menampilkan header dan antarmuka program
     pesanan = PemrosesanPesanan(stok, log, pembayaran)  # Memproses transaksi, keranjang, dan checkout
     vending_status = MyVendingStatus()  # Untuk memantau status vending machine (suhu dan kelembapan)
+    feedback_handler = Feedback()  # Menyimpan masukan feedback pengguna
 
     admin_password = "Admin#123"  # Password untuk akses menu admin
 
-    while True:  # Loop utama program
-        clear_screen()  # Membersihkan layar sebelum menampilkan menu utama
+    while True:
+        clear_screen()
 
         # Menampilkan header utama dengan sapaan selamat datang
         print("||=================================================||")
@@ -810,7 +1069,8 @@ def main():
         print("1. Belanja Produk")  # Opsi untuk belanja produk
         print("2. Login Akun")  # Opsi untuk login atau membuat akun baru
         print("3. Menu Admin")  # Akses khusus admin dengan password
-        print("4. Keluar")  # Keluar dari program
+        print("4. Lihat Feedback")  # Melihat feedback dari pengguna 
+        print("5. Keluar")  # Keluar dari program
         print("----------------------------------------------------")
         
         pilihan_menu = int(input("Pilihan: "))  # Input untuk memilih menu utama
@@ -823,41 +1083,41 @@ def main():
                 print("||               Menu Belanja Produk               ||".center(49))
                 print("||=================================================||\n")
                 
-                stok.display_products()  # Menampilkan daftar produk
-                print("\n1. Tambahkan Produk ke Keranjang")  # Tambahkan produk ke keranjang
-                print("2. Pembayaran")  # Lanjutkan ke proses pembayaran
-                print("3. Cek Keranjang")  # Lihat isi keranjang belanja
-                print("4. Hapus Produk dari Keranjang")  # Menghapus item dari keranjang
-                print("5. Kembali ke Menu Utama")  # Kembali ke menu utama
+                stok.display_products()  # Menampilkan daftar produk dari stok
+                print("\n1. Tambahkan Produk ke Keranjang")  # Opsi untuk menambah produk ke keranjang
+                print("2. Pembayaran")  # Opsi untuk melanjutkan ke proses pembayaran
+                print("3. Cek Keranjang")  # Opsi untuk melihat isi keranjang belanja
+                print("4. Kurangi produk dari Keranjang")  # Opsi untuk mengurangi produk dari keranjang
+                print("5. Kembali ke Menu Utama")  # Opsi untuk kembali ke menu utama
 
-                pilihan_menubelanja = int(input("Pilihan: "))  # Input untuk memilih opsi belanja
-                
-                if pilihan_menubelanja == 1:  # Menambah produk ke keranjang
-                    ulang = "y"  # Menanyakan apakah pengguna ingin mengulangi penambahan
-                    while ulang.lower() == "y":  
-                        clear_screen()  # Membersihkan layar
+                pilihan_menubelanja = int(input("Pilihan: "))  # Input pilihan menu belanja
+
+                if pilihan_menubelanja == 1:  # Jika memilih menambah produk ke keranjang
+                    ulang = "y"  # Variabel untuk mengulang proses penambahan produk
+                    while ulang.lower() == "y":  # Selama pengguna menjawab "y", proses terus berjalan
+                        clear_screen()  # Membersihkan layar sebelum menampilkan daftar produk
                         print("||=================================================||")
                         print("||                    MY VENDING                   ||".center(49))
                         print("||         Penambahan Produk ke Keranjang          ||".center(49))
                         print("||=================================================||\n")
-                        stok.display_products()  # Menampilkan daftar produk
+                        stok.display_products()  # Menampilkan daftar produk yang tersedia
                         try:
-                            kode_produk = int(input("\nKode produk\t\t: "))  # Input kode produk
-                            if kode_produk in stok.products:  # Cek apakah produk ada dalam stok
-                                kuantitas_produk = int(input("Kuantitas produk\t: "))  # Input kuantitas
-                                if kuantitas_produk <= 0:  # Validasi kuantitas harus > 0
-                                    print("Kuantitas produk tidak valid!")
-                                    continue  
-                                pesanan.tambah_ke_keranjang(kode_produk, kuantitas_produk)  # Tambahkan ke keranjang
-                                ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()
-                                while ulang not in ['y', 'n']:  # Validasi input y/n
-                                    print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")
-                                    ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()
+                            kode_produk = int(input("\nKode produk\t\t: "))  # Input kode produk dari pengguna
+                            if kode_produk in stok.products:  # Memastikan kode produk valid
+                                kuantitas_produk = int(input("Kuantitas produk\t: "))  # Input jumlah produk yang ingin ditambahkan
+                                if kuantitas_produk <= 0:  # Validasi jika jumlah kurang atau sama dengan nol
+                                    print("Kuantitas produk tidak valid!")  # Pesan error untuk jumlah tidak valid
+                                    continue  # Kembali ke awal loop
+                                pesanan.tambah_ke_keranjang(kode_produk, kuantitas_produk)  # Tambahkan produk ke keranjang
+                                ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()  # Tanyakan apakah ingin menambahkan produk lain
+                                while ulang not in ['y', 'n']:  # Validasi input harus "y" atau "n"
+                                    print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")  # Pesan error untuk input tidak valid
+                                    ulang = input("Apakah Anda ingin menambahkan produk lainnya ke keranjang (y/n)? ").lower()  # Input ulang
                             else:
-                                print("Kode produk tidak valid. Harap masukkan kode yang tersedia pada daftar.\n")
-                                break
+                                print("Kode produk tidak valid. Harap masukkan kode yang tersedia pada daftar.\n")  # Pesan error jika kode produk tidak ditemukan
+                                break  # Kembali ke menu belanja
                         except ValueError:
-                            print("Input tidak valid. Masukkan angka.")  # Handling jika input bukan angka
+                            print("Input tidak valid. Masukkan angka.")  # Pesan error jika input bukan angka
 
                 elif pilihan_menubelanja == 2:  # Proses pembayaran
                     clear_screen()  # Membersihkan layar
@@ -867,8 +1127,29 @@ def main():
                     print("||=================================================||")
                     while True:
                         if pesanan.cek_keranjang():  # Cek apakah keranjang tidak kosong
-                            pesanan.tampilkan_keranjang()  # Menampilkan isi keranjang
-                            pesanan.proses_checkout()  # Lanjutkan ke checkout
+                            if pesanan.proses_checkout() == True:  # Jika proses checkout berhasil
+                                ulang = "y"  # Variabel untuk menanyakan apakah ingin memberikan feedback
+                                while ulang.lower() == "y":  # Selama pengguna menjawab "y"
+                                    ulang = input("Apakah Anda ingin memberikan feedback untuk kami (y/n)? ")
+                                    if ulang == "y":  # Jika pengguna ingin memberikan feedback
+                                        while True:
+                                            try:
+                                                rating = int(input("\nSilakan beri rating (1-5): ").strip())  # Input rating pengguna
+                                                if rating < 1 or rating > 5:  # Validasi rating harus dalam rentang 1-5
+                                                    raise ValueError("Rating harus antara 1 hingga 5.")  # Pesan error jika tidak valid
+                                                break
+                                            except ValueError:
+                                                print("Input tidak valid. Masukkan angka 1 sampai 5.")  # Pesan error jika bukan angka
+                                                
+                                        feedback = input("Silakan tuliskan feedback Anda: ").strip()  # Input feedback pengguna
+                                        feedback_handler.save_feedback(rating, feedback)  # Simpan feedback ke file
+                                        print("Feedback Anda telah tersimpan. Terima kasih telah berbelanja di MyVending. Sampai jumpa lagi!")
+                                        break
+                                    elif ulang == "n":  # Jika tidak ingin memberikan feedback
+                                        print("Terima kasih telah berbelanja di MyVending. Sampai jumpa lagi!")
+                                        break
+                                    else:
+                                        raise ValueError("Input tidak valid. Masukkan 'y' atau 'n'.")  # Pesan error untuk input tidak valid
                             break
                         else: 
                             break
@@ -882,44 +1163,45 @@ def main():
                     if pesanan.cek_keranjang():  # Jika keranjang tidak kosong
                         pesanan.tampilkan_keranjang()  # Tampilkan isi keranjang
 
-                elif pilihan_menubelanja == 4:  # Hapus produk dari keranjang
+                elif pilihan_menubelanja == 4:  # Mengurangi produk dari keranjang
                     while True:
-                        clear_screen()  # Membersihkan layar
+                        clear_screen()  # Membersihkan layar untuk memberikan tampilan yang lebih rapi
                         print("||=================================================||")
                         print("||                    MY VENDING                   ||".center(49))
-                        print("||           Hapus Produk dari Keranjang           ||".center(49))
+                        print("||          Kurangi Produk dari Keranjang          ||".center(49))
                         print("||=================================================||")
                         
-                        if not pesanan.cek_keranjang():  # Jika keranjang kosong
-                            break  # Keluar dari menu penghapusan
+                        if not pesanan.cek_keranjang():  # Mengecek apakah keranjang kosong
+                            break  # Jika keranjang kosong, keluar dari menu penghapusan
                         
                         try:
-                            pesanan.tampilkan_keranjang()  # Tampilkan isi keranjang
-                            kode_produk = int(input("Kode produk\t: "))  # Input kode produk
-                            pesanan.hapus_dari_keranjang(kode_produk)  # Hapus produk dari keranjang
+                            pesanan.tampilkan_keranjang()  # Menampilkan isi keranjang belanja kepada pengguna
+                            kode_produk = int(input("Kode produk\t: "))  # Meminta input kode produk yang akan dikurangi
+                            kuantitas = int(input("Masukkan kuantitas pengurangan : ").strip())  # Meminta input jumlah pengurangan produk
+                            pesanan.kurangi_dari_keranjang(kode_produk, kuantitas)  # Memproses pengurangan produk dari keranjang
                         except ValueError:
-                            print("Input tidak valid. Masukkan angka untuk kode produk dengan benar.")  # Handling error
-                            continue
+                            print("Input tidak valid. Masukkan angka untuk kode produk dengan benar.")  # Pesan error jika input bukan angka
+                            continue  # Kembali ke awal loop untuk input ulang
                         
-                        ulang = input("Apakah Anda ingin menghapus produk lainnya dari keranjang (y/n)? ").lower()  # Tanyakan ulang
-                        while ulang not in ['y', 'n']:  # Validasi input
-                            print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")
-                            ulang = input("Apakah Anda ingin menghapus produk lainnya dari keranjang (y/n)? ").lower()
+                        ulang = input("Apakah Anda ingin mengurangi produk lainnya dari keranjang (y/n)? ").lower()  # Menanyakan apakah ingin mengurangi produk lain
+                        while ulang not in ['y', 'n']:  # Validasi input harus berupa 'y' atau 'n'
+                            print("Pilihan tidak valid. Harap jawab dengan 'y' atau 'n'.")  # Pesan error jika input tidak valid
+                            ulang = input("Apakah Anda ingin mengurangi produk lainnya dari keranjang (y/n)? ").lower()  # Meminta input ulang
                         
-                        if ulang == 'n':  # Jika tidak ingin menghapus lagi, keluar dari loop
+                        if ulang == 'n':  # Jika pengguna memilih 'n', keluar dari loop
                             break
 
                 elif pilihan_menubelanja == 5:  # Kembali ke menu utama
-                    break
+                    break  # Keluar dari menu belanja produk untuk kembali ke menu utama
                 
                 else:
-                    print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!\n")
+                    print("Pilihan tidak valid. Silakan masukkan kembali pilihan yang valid!\n")  # Pesan error jika input tidak valid
                 
-                input("\nTekan Enter untuk melanjutkan...")  # Tunggu input untuk melanjutkan
-
+                input("\nTekan Enter untuk melanjutkan...")  # Menunggu input dari pengguna untuk melanjutkan ke iterasi berikutnya
+   
         elif pilihan_menu == 2:  # Jika memilih menu akun
             while True:
-                clear_screen()  # Membersihkan layar
+                clear_screen()  # Membersihkan layar untuk memberikan tampilan yang lebih rapi
                 print("||=================================================||")
                 print("||                    MY VENDING                   ||".center(49))
                 print("||                    Menu Akun                    ||".center(49))
@@ -937,7 +1219,7 @@ def main():
                 pilihan_akun = int(input("Pilihan: "))  # Input pilihan untuk menu akun
 
                 if pilihan_akun == 1:  # Jika memilih login
-                    akun.login()  # Memanggil fungsi login dari kelas Akun
+                    akun.login()  # Memanggil fungsi login dari kelas Akun untuk proses login pengguna
 
                 elif pilihan_akun == 2:  # Jika memilih buat akun baru
                     akun.buat_akun_baru()  # Memanggil fungsi untuk membuat akun baru
@@ -955,13 +1237,12 @@ def main():
                     akun.logout()  # Memanggil fungsi logout untuk keluar dari akun saat ini
 
                 elif pilihan_akun == 7:  # Jika memilih kembali ke menu utama
-                    break  # Keluar dari loop menu akun
+                    break  # Keluar dari loop menu akun untuk kembali ke menu utama
 
                 else:  # Jika pilihan tidak valid
-                    print("Pilihan tidak valid. Silakan masukkan kembali pilihan antara 1-7!")
+                    print("Pilihan tidak valid. Silakan masukkan kembali pilihan antara 1-7!")  # Menampilkan pesan error untuk input yang salah
                 
-                input("Tekan Enter untuk melanjutkan...")  # Menunggu input untuk melanjutkan
-
+                input("Tekan Enter untuk melanjutkan...")  # Menunggu input untuk melanjutkan ke iterasi berikutnya
         elif pilihan_menu == 3:  # Jika memilih menu admin
             input_password = getpass.getpass("\nPassword (hide)\t: ")  # Input password admin (tersembunyi)
 
@@ -1021,7 +1302,6 @@ def main():
 
                             else:  # Jika pilihan tidak valid
                                 print("Pilihan tidak valid. Silakan masukkan kembali pilihan antara 1-3\n")
-                                pilihan_status = int(input("Pilihan: "))
 
                     elif pilihan_menuadmin == 3:  # Jika memilih kelola produk
                         while True:  # Loop untuk menu kelola produk
@@ -1031,9 +1311,12 @@ def main():
                             print("||                  Kelola Produk                  ||".center(49))
                             print("||=================================================||")
                             
-                            stok.display_products()  # Menampilkan daftar produk
+                            print("\n")
+                            stok.display_products_admin()  # Menampilkan daftar produk
                             print("\n1. Tambah Stok Produk")  # Menambahkan stok produk
-                            print("2. Kembali ke Menu Admin")  # Kembali ke menu admin
+                            print("2. Kurangi Stok Produk")  # Mengurangi stok produk
+                            print("3. Atur Expired Stok Produk")  # Mengatur tanggal expired stok produk
+                            print("4. Kembali ke Menu Admin")  # Kembali ke menu admin
 
                             try:
                                 pilihan_kelola_produk = int(input("Pilihan: "))  # Input pilihan kelola produk
@@ -1042,8 +1325,7 @@ def main():
                                     try:
                                         kode_produk = int(input("\nKode produk\t: "))  # Input kode produk
                                         if kode_produk in stok.products:  # Validasi kode produk
-                                            jumlah_tambah = int(input("Stok penambahan\t: "))  # Input jumlah stok
-                                            
+                                            jumlah_tambah = int(input("Kuantitas penambahan\t: "))  # Input jumlah stok
                                             stok.tambah_stok(kode_produk, jumlah_tambah, log)  # Menambahkan stok
                                         else:
                                             print("Kode produk tidak ditemukan.")  # Kode tidak valid
@@ -1051,16 +1333,38 @@ def main():
                                         print("Input tidak valid. Masukkan angka untuk kode produk dan jumlah stok.")  # Error handling
                                     input("\nTekan Enter untuk melanjutkan...")  # Tunggu input untuk melanjutkan
 
-                                elif pilihan_kelola_produk == 2:  # Jika memilih kembali ke menu admin
+                                elif pilihan_kelola_produk == 2:  # Jika memilih kurangi stok
+                                    try:
+                                        kode_produk = int(input("\nKode produk\t: "))  # Input kode produk
+                                        if kode_produk in stok.products:  # Validasi kode produk
+                                            jumlah_kurang = int(input("Kuantitas pengurangan\t: "))  # Input jumlah stok
+                                            stok.kurangi_stok(kode_produk, jumlah_kurang, log)  # Mengurangi stok
+                                        else:
+                                            print("Kode produk tidak ditemukan.")  # Kode tidak valid
+                                    except ValueError:
+                                        print("Input tidak valid. Masukkan angka untuk kode produk dan jumlah stok.")  # Error handling
+                                    input("\nTekan Enter untuk melanjutkan...")  # Tunggu input untuk melanjutkan
+
+                                elif pilihan_kelola_produk == 3:  # Jika memilih mengatur ulang expired stok
+                                    try:
+                                        kode_produk = int(input("\nKode produk\t: "))  # Input kode produk
+                                        if kode_produk in stok.products:  # Validasi kode produk
+                                            expired_baru = input("Expired baru (contoh: MM/YY, seperti 07/25)\t: ")  # Input expired baru
+                                            stok.atur_expired(kode_produk, expired_baru, log)  # Memperbarui expired produk
+                                        else:
+                                            print("Kode produk tidak ditemukan.")  # Kode tidak valid
+                                    except ValueError:
+                                        print("Input tidak valid. Masukkan angka untuk kode produk.")  # Error handling
+                                    input("\nTekan Enter untuk melanjutkan...")  # Tunggu input untuk melanjutkan
+
+                                elif pilihan_kelola_produk == 4:  # Jika memilih kembali ke menu admin
                                     break  # Keluar dari loop kelola produk
 
                                 else:  # Jika pilihan tidak valid
-                                    print("Pilihan tidak valid. Silakan masukkan kembali pilihan 1 atau 2!")
-                                    input("\nTekan Enter untuk melanjutkan...")
-
+                                    print("Pilihan tidak valid. Masukkan angka antara 1-4.")  # Pesan kesalahan
                             except ValueError:
-                                print("Input tidak valid. Masukkan angka untuk pilihan.")  # Error handling
-                                input("\nTekan Enter untuk melanjutkan...")
+                                print("Input tidak valid. Masukkan angka untuk pilihan.")  # Error handling untuk input utama
+                            input("\nTekan Enter untuk melanjutkan...")  # Tunggu input untuk melanjutkan
 
                     elif pilihan_menuadmin == 4:  # Jika memilih cek saldo kembalian
                         clear_screen()  # Membersihkan layar
@@ -1080,14 +1384,22 @@ def main():
             else:
                 # Jika password salah, cukup satu kali enter untuk kembali ke Menu Utama
                 print("Password salah. Kembali ke Menu Utama.")
-
-        elif pilihan_menu == 4:  # Jika memilih keluar dari aplikasi
-            print("Terima kasih telah mengunjungi MyVending!")  # Menampilkan pesan perpisahan
-            exit()  # Menghentikan program
+      
+        elif pilihan_menu == 4:  # Jika memilih menampilkan feedback
+            clear_screen()  # Membersihkan layar
+            print("||=================================================||")
+            print("||                    MY VENDING                   ||".center(49))
+            print("||                  Lihat Feedback                 ||".center(49))
+            print("||=================================================||")
+            feedback_handler.display_feedback()  # Memanggil fungsi untuk menampilkan daftar feedback yang telah diberikan pengguna
+                   
+        elif pilihan_menu == 5:  # Jika memilih keluar dari aplikasi
+            print("Terima kasih telah mengunjungi MyVending!")  # Menampilkan pesan perpisahan kepada pengguna
+            exit()  # Menghentikan eksekusi program dan keluar
 
         else:  # Jika pilihan menu utama tidak valid
-            print("Pilihan tidak valid. Silakan masukkan kembali pilihan antara 1-4!")  # Menampilkan pesan error
+            print("Pilihan tidak valid. Silakan masukkan kembali pilihan antara 1-4!")  # Menampilkan pesan error jika input tidak sesuai dengan menu yang tersedia
             
-        input("\nTekan Enter untuk melanjutkan...")  # Menunggu pengguna menekan Enter sebelum melanjutkan
+        input("\nTekan Enter untuk melanjutkan...")  # Menunggu pengguna menekan Enter sebelum melanjutkan program
 
-main()  # Memanggil fungsi utama program untuk menjalankan alur vending machine.
+main()  # Memanggil fungsi utama untuk menjalankan keseluruhan alur program vending machine
